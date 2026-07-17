@@ -17,6 +17,8 @@ def main():
     screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
+     # the player isn't allowed to leave.
+    bounds_rect = screen.get_rect()
     # A pygame.Rect describing where the player square is: x, y, width, height.
     # We start it centered on the screen.
     player_rect = pygame.Rect(0, 0, settings.PLAYER_SIZE, settings.PLAYER_SIZE)
@@ -48,6 +50,9 @@ def main():
 
         player_rect.x += dx * settings.PLAYER_SPEED * dt
         player_rect.y += dy * settings.PLAYER_SPEED * dt
+
+        # poking out on any side -- this is what stops the player at the edges.
+        player_rect.clamp_ip(bounds_rect)
 
         # 3. Draw everything
         screen.fill(settings.BG_COLOR)
