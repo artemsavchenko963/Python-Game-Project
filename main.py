@@ -4,6 +4,11 @@ in a loop. Every room (except the first) gets a west door back to the
 previous room; every room (except the last) gets an east door forward to
 the next one. Still a straight line, not random yet -- that's a later
 step -- but it's now GENERATED rather than typed out one room at a time.
+
+Step 10: the player now aims toward the mouse cursor. handle_aim() needs
+to know where the camera is (it converts the player's world position to
+a screen position to compare against the mouse, which is always in
+screen coordinates), so it has to run AFTER the camera is computed.
 """
 
 import pygame
@@ -69,6 +74,8 @@ def main():
         camera_y = player.rect.centery - settings.SCREEN_HEIGHT // 2
         camera_x = max(0, min(camera_x, settings.ROOM_WIDTH - settings.SCREEN_WIDTH))
         camera_y = max(0, min(camera_y, settings.ROOM_HEIGHT - settings.SCREEN_HEIGHT))
+
+        player.handle_aim(camera_x, camera_y)
 
         # 3. Draw everything
         screen.fill(settings.BG_COLOR)

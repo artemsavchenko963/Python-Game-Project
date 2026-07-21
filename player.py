@@ -13,6 +13,11 @@ class Player:
         self.rect = pygame.Rect(0, 0, settings.PLAYER_SIZE, settings.PLAYER_SIZE)
         self.rect.center = center
 
+        # Which way the player is currently facing/aiming, as a unit
+        # vector (length 1). Defaults to facing right. This will be the
+        # direction projectiles travel once we add shooting next step.
+        self.aim_dir = pygame.Vector2(1, 0)
+
     def handle_movement(self, dt, keys, wall_rects):
         """Read WASD state and move, sliding along any wall_rects we bump into."""
         dx = 0
@@ -46,6 +51,24 @@ class Player:
                 elif dy < 0:
                     self.rect.top = wall_rect.bottom
 
+    def handle_aim(self, camera_x, camera_y):
+        """Point aim_dir from the player's on-screen position toward the mouse."""
+        screen_x = self.rect.centerx - camera_x
+        screen_y = self.rect.centery - camera_y
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        direction = pygame.Vector2(mouse_x - screen_x, mouse_y - screen_y)
+        # Guard against the zero-length vector you'd get if the mouse were
+        # exactly on top of the player -- normalize() crashes on that.
+        if direction.length_squared() > 0:
+            self.aim_dir = direction.normalize()
+
     def draw(self, screen, camera_x, camera_y):
         screen_rect = self.rect.move(-camera_x, -camera_y)
         pygame.draw.rect(screen, settings.PLAYER_COLOR, screen_rect)
+
+        # A short line from the player's center toward the aim direction --
+        # a stand-in for "the gun" until we have real weapon sprites.
+        start = pygame.Vector2(screen_rect.center)
+        end = start + self.aim_dir * settings.AIM_INDICATOR_LENGTH
+        pygame.draw.line(screen, settings.AIM_INDICATOR_COLOR, start, end, 4)

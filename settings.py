@@ -43,3 +43,7 @@ DOOR_ENTRY_MARGIN = 8              # pixels past a doorway you land at when ente
 
 # --- Room chain (step 9) ---
 NUM_ROOMS = 5                      # how many rooms get generated in a row
+
+# --- Aiming (step 10) ---
+AIM_INDICATOR_LENGTH = 34          # how far the aim line pokes out from the player
+AIM_INDICATOR_COLOR = (255, 225, 110)   # pale yellow, reads as "this is your weapon"
