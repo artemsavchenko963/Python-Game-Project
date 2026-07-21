@@ -1,12 +1,7 @@
 """
 Room: owns the tile grid for one room -- where the walls are, where the
-floor is, and how to draw only the tiles currently visible on screen.
-
-Pulled out of main.py for the same reason as Player: main.py shouldn't
-need to know HOW the checkerboard pattern is computed or which tiles
-count as walls. It just creates a Room and calls room.draw(). This is
-also the class that will grow doors, enemy lists, and item lists once we
-get to multiple rooms and enemies.
+floor is, which walls have a doorway gap in them, and how to draw only
+the tiles currently visible on screen.
 """
 
 import pygame
@@ -15,25 +10,57 @@ import settings
 
 
 class Room:
-    def __init__(self):
+    def __init__(self, doors=None):
         self.rect = pygame.Rect(0, 0, settings.ROOM_WIDTH, settings.ROOM_HEIGHT)
 
-        # The playable floor area is the room minus its 1-tile-thick wall
-        # border on every side -- this is what the player gets clamped to.
-        t = settings.TILE_SIZE
-        self.floor_area_rect = self.rect.inflate(-2 * t, -2 * t)
+        # Which sides have a doorway gap in the wall, e.g. {"east", "west"}.
+        self.doors = doors or set()
+
+        # The doorway gap is always centered on whichever wall it's on, and
+        # is the same few tiles tall on every room, so two connected rooms'
+        # doorways always line up with each other.
+        span = settings.DOOR_SPAN_TILES
+        self._door_row_start = settings.ROOM_TILES_TALL // 2 - span // 2
+
+        # Precompute which tiles are solid walls (used for both drawing and
+        # collision) now that a doorway can leave a gap in the wall ring.
+        self.wall_rects = self._build_wall_rects()
+
+    def _is_door_gap(self, tx, ty):
+        span = settings.DOOR_SPAN_TILES
+        row_ok = self._door_row_start <= ty < self._door_row_start + span
+        if not row_ok:
+            return False
+        if "east" in self.doors and tx == settings.ROOM_TILES_WIDE - 1:
+            return True
+        if "west" in self.doors and tx == 0:
+            return True
+        return False
 
     def is_wall_tile(self, tx, ty):
-        return (
+        on_border = (
             tx == 0 or ty == 0
             or tx == settings.ROOM_TILES_WIDE - 1
             or ty == settings.ROOM_TILES_TALL - 1
         )
+        if not on_border:
+            return False
+        return not self._is_door_gap(tx, ty)
+
+    def _build_wall_rects(self):
+        """One Rect per solid wall tile. Doorway gap tiles are skipped on
+        purpose -- that's what makes them passable instead of solid."""
+        t = settings.TILE_SIZE
+        rects = []
+        for ty in range(settings.ROOM_TILES_TALL):
+            for tx in range(settings.ROOM_TILES_WIDE):
+                if self.is_wall_tile(tx, ty):
+                    rects.append(pygame.Rect(tx * t, ty * t, t, t))
+        return rects
 
     def draw(self, screen, camera_x, camera_y):
         t = settings.TILE_SIZE
 
-        # Only figure out and draw tiles that could actually be visible.
         first_tx = camera_x // t
         first_ty = camera_y // t
         last_tx = (camera_x + settings.SCREEN_WIDTH) // t + 1

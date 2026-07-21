@@ -36,3 +36,10 @@ FLOOR_COLOR_B = (40, 40, 52)
 # checkerboard so it visually reads as a different material from the floor.
 WALL_COLOR_A = (60, 55, 70)
 WALL_COLOR_B = (50, 46, 60)
+
+# --- Doors (step 8) ---
+DOOR_SPAN_TILES = 2                # how many tiles tall/wide a doorway gap is
+DOOR_ENTRY_MARGIN = 8              # pixels past a doorway you land at when entering a room
+
+# --- Room chain (step 9) ---
+NUM_ROOMS = 5                      # how many rooms get generated in a row
