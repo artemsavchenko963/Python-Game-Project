@@ -18,6 +18,10 @@ class Player:
         # direction projectiles travel once we add shooting next step.
         self.aim_dir = pygame.Vector2(1, 0)
 
+        # Counts down to 0; the player may fire again once it reaches 0.
+        # Starts at 0 so you can fire immediately on the very first frame.
+        self.fire_cooldown = 0.0
+
     def handle_movement(self, dt, keys, wall_rects):
         """Read WASD state and move, sliding along any wall_rects we bump into."""
         dx = 0
@@ -62,6 +66,18 @@ class Player:
         # exactly on top of the player -- normalize() crashes on that.
         if direction.length_squared() > 0:
             self.aim_dir = direction.normalize()
+
+    def tick_cooldown(self, dt):
+        """Count the fire cooldown down toward 0. Call this once per frame."""
+        if self.fire_cooldown > 0:
+            self.fire_cooldown -= dt
+
+    def can_fire(self):
+        return self.fire_cooldown <= 0
+
+    def reset_fire_cooldown(self):
+        """Call this every time a shot is actually fired."""
+        self.fire_cooldown = settings.FIRE_INTERVAL
 
     def draw(self, screen, camera_x, camera_y):
         screen_rect = self.rect.move(-camera_x, -camera_y)

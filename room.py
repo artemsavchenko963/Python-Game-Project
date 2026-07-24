@@ -26,6 +26,11 @@ class Room:
         # collision) now that a doorway can leave a gap in the wall ring.
         self.wall_rects = self._build_wall_rects()
 
+        # Enemies belonging to this room specifically. A Room only ever
+        # knows about its OWN enemies, never other rooms' -- main.py just
+        # asks whichever room is current to update/draw its own list.
+        self.enemies = []
+
     def _is_door_gap(self, tx, ty):
         span = settings.DOOR_SPAN_TILES
         row_ok = self._door_row_start <= ty < self._door_row_start + span

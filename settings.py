@@ -52,3 +52,11 @@ AIM_INDICATOR_COLOR = (255, 225, 110)   # pale yellow, reads as "this is your we
 PROJECTILE_SPEED = 600              # pixels per second -- faster than the player
 PROJECTILE_RADIUS = 6
 PROJECTILE_COLOR = (255, 240, 150)
+
+# --- Fire rate (step 12) ---
+FIRE_INTERVAL = 0.25                 # seconds between shots while holding LMB (4 shots/sec)
+
+# --- First enemy (step 13) ---
+ENEMY_SIZE = 36
+ENEMY_COLOR = (220, 70, 70)         # red -- reads clearly as "hostile" against the floor/wall colors
+ENEMY_MAX_HEALTH = 30

@@ -13,6 +13,15 @@ screen coordinates), so it has to run AFTER the camera is computed.
 Step 11: left-click fires a projectile in the aimed direction. Active
 projectiles live in one plain list here in main.py -- there's no need for
 a whole class to own "the list of all bullets" yet, a list is enough.
+
+Step 12: holding LMB down now fires repeatedly, once every
+settings.FIRE_INTERVAL seconds, instead of once per click. We switched
+from reacting to a MOUSEBUTTONDOWN event to checking
+pygame.mouse.get_pressed() every frame, gated by Player's cooldown timer.
+
+Step 13: the first enemy -- a stationary square with health, sitting in
+one specific room. It doesn't move, and nothing can hurt it yet; this
+step is only about having an Enemy object that exists and draws itself.
 """
 
 import pygame
@@ -21,6 +30,7 @@ import settings
 from player import Player
 from room import Room
 from projectile import Projectile
+from enemy import Enemy
 
 
 def generate_room_chain(num_rooms):
@@ -45,6 +55,14 @@ def main():
     rooms = generate_room_chain(settings.NUM_ROOMS)
     current_index = 0
 
+    # Drop a single stationary enemy into one of the middle rooms, offset
+    # a bit from the room's exact center (which sits right on the doorway's
+    # path) so it's clearly visible off to one side as you walk in.
+    enemy_room = rooms[len(rooms) // 2]
+    enemy_room.enemies.append(
+        Enemy(center=(enemy_room.rect.centerx, enemy_room.rect.centery - 150))
+    )
+
     player = Player(center=rooms[current_index].rect.center)
     projectiles = []
 
@@ -55,11 +73,6 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # MOUSEBUTTONDOWN fires once per click (not every frame the
-                # button is held), so this alone limits us to one shot per
-                # click -- no extra cooldown logic needed yet.
-                projectiles.append(Projectile(player.rect.center, player.aim_dir))
 
         # 2. Update game state
         current_room = rooms[current_index]
@@ -88,6 +101,17 @@ def main():
 
         player.handle_aim(camera_x, camera_y)
 
+        # Fire while LMB is held, at most once every FIRE_INTERVAL seconds.
+        # get_pressed() checks the CURRENT held state every frame (like
+        # get_pressed() for keys), so this is what makes holding the
+        # button fire repeatedly instead of just once.
+        player.tick_cooldown(dt)
+        mouse_buttons = pygame.mouse.get_pressed()
+        left_button_held = mouse_buttons[0]
+        if left_button_held and player.can_fire():
+            projectiles.append(Projectile(player.rect.center, player.aim_dir))
+            player.reset_fire_cooldown()
+
         # Move every projectile, then drop any that hit a wall or flew
         # outside the current room. Looping over projectiles[:] (a copy of
         # the list) is what makes it safe to remove items from the real
@@ -105,6 +129,8 @@ def main():
         # 3. Draw everything
         screen.fill(settings.BG_COLOR)
         current_room.draw(screen, camera_x, camera_y)
+        for enemy in current_room.enemies:
+            enemy.draw(screen, camera_x, camera_y)
         player.draw(screen, camera_x, camera_y)
         for projectile in projectiles:
             projectile.draw(screen, camera_x, camera_y)
