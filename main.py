@@ -9,6 +9,10 @@ Step 10: the player now aims toward the mouse cursor. handle_aim() needs
 to know where the camera is (it converts the player's world position to
 a screen position to compare against the mouse, which is always in
 screen coordinates), so it has to run AFTER the camera is computed.
+
+Step 11: left-click fires a projectile in the aimed direction. Active
+projectiles live in one plain list here in main.py -- there's no need for
+a whole class to own "the list of all bullets" yet, a list is enough.
 """
 
 import pygame
@@ -16,6 +20,7 @@ import pygame
 import settings
 from player import Player
 from room import Room
+from projectile import Projectile
 
 
 def generate_room_chain(num_rooms):
@@ -41,6 +46,7 @@ def main():
     current_index = 0
 
     player = Player(center=rooms[current_index].rect.center)
+    projectiles = []
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
     running = True
@@ -49,6 +55,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # MOUSEBUTTONDOWN fires once per click (not every frame the
+                # button is held), so this alone limits us to one shot per
+                # click -- no extra cooldown logic needed yet.
+                projectiles.append(Projectile(player.rect.center, player.aim_dir))
 
         # 2. Update game state
         current_room = rooms[current_index]
@@ -77,10 +88,26 @@ def main():
 
         player.handle_aim(camera_x, camera_y)
 
+        # Move every projectile, then drop any that hit a wall or flew
+        # outside the current room. Looping over projectiles[:] (a copy of
+        # the list) is what makes it safe to remove items from the real
+        # `projectiles` list while we're in the middle of iterating it.
+        for projectile in projectiles[:]:
+            projectile.update(dt)
+            hit_wall = any(
+                projectile.get_rect().colliderect(wall_rect)
+                for wall_rect in current_room.wall_rects
+            )
+            left_room = not current_room.rect.collidepoint(projectile.pos)
+            if hit_wall or left_room:
+                projectiles.remove(projectile)
+
         # 3. Draw everything
         screen.fill(settings.BG_COLOR)
         current_room.draw(screen, camera_x, camera_y)
         player.draw(screen, camera_x, camera_y)
+        for projectile in projectiles:
+            projectile.draw(screen, camera_x, camera_y)
         pygame.display.flip()
 
         # 4. Wait so we run at a steady FPS, and remember how long that frame

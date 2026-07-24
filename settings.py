@@ -47,3 +47,8 @@ NUM_ROOMS = 5                      # how many rooms get generated in a row
 # --- Aiming (step 10) ---
 AIM_INDICATOR_LENGTH = 34          # how far the aim line pokes out from the player
 AIM_INDICATOR_COLOR = (255, 225, 110)   # pale yellow, reads as "this is your weapon"
+
+# --- Shooting (step 11) ---
+PROJECTILE_SPEED = 600              # pixels per second -- faster than the player
+PROJECTILE_RADIUS = 6
+PROJECTILE_COLOR = (255, 240, 150)
