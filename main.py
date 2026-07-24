@@ -27,6 +27,10 @@ Step 14: projectiles now check for a hit against the current room's
 enemies FIRST, before checking walls/room-exit. A projectile that hits an
 enemy is removed either way (whether or not that hit kills the enemy) --
 it shouldn't also get to fly on and separately hit a wall the same frame.
+
+Step 15: enemies now chase the player. Note there's still no collision
+between the player and an enemy -- touching one won't do anything (or
+push you back) yet. That's the health system step, coming up soon.
 """
 
 import pygame
@@ -96,6 +100,11 @@ def main():
             player.rect.right = new_room.rect.right - settings.TILE_SIZE - settings.DOOR_ENTRY_MARGIN
 
         current_room = rooms[current_index]
+
+        # Chase behavior: every enemy in the CURRENT room moves toward the
+        # player each frame, colliding with that room's own walls.
+        for enemy in current_room.enemies:
+            enemy.update(dt, player, current_room.wall_rects)
 
         # Point the camera at the player, then keep it from scrolling past
         # the CURRENT room's own edges.

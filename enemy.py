@@ -1,8 +1,8 @@
 """
-Enemy: a stationary colored square with health. Bullets can now damage
-and destroy it (main.py handles the actual collision check; this class
-just knows how to apply damage to itself). Movement/AI is still a later
-step.
+Enemy: a colored square with health that bullets can damage/destroy, and
+now chases the player directly. Movement uses the same axis-separated
+wall-collision technique as Player.handle_movement -- worth comparing the
+two side by side.
 """
 
 import pygame
@@ -22,6 +22,28 @@ class Enemy:
         """Reduce health by amount. Returns True if this kills the enemy."""
         self.health -= amount
         return self.health <= 0
+
+    def update(self, dt, player, wall_rects):
+        """Move straight toward the player, colliding with walls like the player does."""
+        direction = pygame.Vector2(player.rect.center) - pygame.Vector2(self.rect.center)
+        if direction.length_squared() > 0:
+            direction = direction.normalize()
+
+        self.rect.x += direction.x * settings.ENEMY_SPEED * dt
+        for wall_rect in wall_rects:
+            if self.rect.colliderect(wall_rect):
+                if direction.x > 0:
+                    self.rect.right = wall_rect.left
+                elif direction.x < 0:
+                    self.rect.left = wall_rect.right
+
+        self.rect.y += direction.y * settings.ENEMY_SPEED * dt
+        for wall_rect in wall_rects:
+            if self.rect.colliderect(wall_rect):
+                if direction.y > 0:
+                    self.rect.bottom = wall_rect.top
+                elif direction.y < 0:
+                    self.rect.top = wall_rect.bottom
 
     def draw(self, screen, camera_x, camera_y):
         screen_rect = self.rect.move(-camera_x, -camera_y)

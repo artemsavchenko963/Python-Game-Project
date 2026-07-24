@@ -14,7 +14,7 @@ PLAYER_SIZE = 40                   # width/height of the square, in pixels
 PLAYER_COLOR = (80, 200, 255)      # light blue
 
 # --- Player movement (step 3) ---
-PLAYER_SPEED = 500               # pixels per SECOND (not per frame -- see main.py)
+PLAYER_SPEED = 250                 # pixels per SECOND (not per frame -- see main.py)
 
 # --- Room / camera (step 5) ---
 # The room is bigger than the window, so the camera has somewhere to scroll to.
@@ -63,3 +63,6 @@ ENEMY_MAX_HEALTH = 30
 
 # --- Bullets hurting enemies (step 14) ---
 PROJECTILE_DAMAGE = 10               # 3 hits to kill the current 30-HP enemy
+
+# --- Enemy chasing (step 15) ---
+ENEMY_SPEED = 120                    # slower than the player (250), so it's escapable
