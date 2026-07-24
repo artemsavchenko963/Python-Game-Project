@@ -22,6 +22,11 @@ pygame.mouse.get_pressed() every frame, gated by Player's cooldown timer.
 Step 13: the first enemy -- a stationary square with health, sitting in
 one specific room. It doesn't move, and nothing can hurt it yet; this
 step is only about having an Enemy object that exists and draws itself.
+
+Step 14: projectiles now check for a hit against the current room's
+enemies FIRST, before checking walls/room-exit. A projectile that hits an
+enemy is removed either way (whether or not that hit kills the enemy) --
+it shouldn't also get to fly on and separately hit a wall the same frame.
 """
 
 import pygame
@@ -112,12 +117,27 @@ def main():
             projectiles.append(Projectile(player.rect.center, player.aim_dir))
             player.reset_fire_cooldown()
 
-        # Move every projectile, then drop any that hit a wall or flew
-        # outside the current room. Looping over projectiles[:] (a copy of
-        # the list) is what makes it safe to remove items from the real
-        # `projectiles` list while we're in the middle of iterating it.
+        # Move every projectile, then check what it hit. Looping over
+        # projectiles[:] (a copy of the list) is what makes it safe to
+        # remove items from the real `projectiles` list while we're in the
+        # middle of iterating it.
         for projectile in projectiles[:]:
             projectile.update(dt)
+
+            # Check enemies first -- a projectile that hits one is used up
+            # right there, regardless of whether that hit also killed it.
+            hit_enemy = None
+            for enemy in current_room.enemies:
+                if projectile.get_rect().colliderect(enemy.rect):
+                    hit_enemy = enemy
+                    break
+
+            if hit_enemy is not None:
+                if hit_enemy.take_damage(settings.PROJECTILE_DAMAGE):
+                    current_room.enemies.remove(hit_enemy)
+                projectiles.remove(projectile)
+                continue
+
             hit_wall = any(
                 projectile.get_rect().colliderect(wall_rect)
                 for wall_rect in current_room.wall_rects
