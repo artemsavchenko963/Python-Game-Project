@@ -31,3 +31,26 @@ def draw_health_bar(screen, player):
     # Border drawn last, on top, so it frames both the background and the
     # fill cleanly regardless of how much health is left.
     pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, background_rect, settings.HEALTH_BAR_BORDER_WIDTH)
+
+
+def draw_game_over(screen):
+    """A dark overlay plus centered title/hint text. Fonts are created here
+    each call rather than cached -- this screen isn't drawn every frame
+    during normal play, only while dead, so it's not worth optimizing."""
+    overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
+    overlay.fill((0, 0, 0))
+    overlay.set_alpha(settings.GAME_OVER_OVERLAY_ALPHA)
+    screen.blit(overlay, (0, 0))
+
+    center_x = settings.SCREEN_WIDTH // 2
+    center_y = settings.SCREEN_HEIGHT // 2
+
+    title_font = pygame.font.SysFont(None, settings.GAME_OVER_TITLE_FONT_SIZE)
+    title_surface = title_font.render("YOU DIED", True, settings.GAME_OVER_TITLE_COLOR)
+    title_rect = title_surface.get_rect(center=(center_x, center_y - 20))
+    screen.blit(title_surface, title_rect)
+
+    hint_font = pygame.font.SysFont(None, settings.GAME_OVER_HINT_FONT_SIZE)
+    hint_surface = hint_font.render("Press R to restart", True, settings.HUD_TEXT_COLOR)
+    hint_rect = hint_surface.get_rect(center=(center_x, center_y + 40))
+    screen.blit(hint_surface, hint_rect)

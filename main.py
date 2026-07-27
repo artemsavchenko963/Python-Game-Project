@@ -40,6 +40,13 @@ health can silently hit 0 for now. Both are coming up next.
 
 Step 17: an on-screen health bar, via hud.py. Drawn last, after
 everything in the world, so it always sits on top of the room/player/etc.
+
+Step 18: dying now actually means something. All the gameplay UPDATE
+logic (movement, chasing, damage, aiming, shooting, projectiles) is now
+wrapped in `if not game_over:` -- once health hits 0, the world freezes
+in place and a "YOU DIED" screen appears. Pressing R rebuilds a fresh
+game from scratch. Drawing is NOT wrapped, so the frozen world stays
+visible underneath the game-over overlay instead of vanishing.
 """
 
 import pygame
@@ -65,14 +72,11 @@ def generate_room_chain(num_rooms):
     return rooms
 
 
-def main():
-    pygame.init()
-    pygame.display.set_caption("Dark Rooms")
-    screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
-    clock = pygame.time.Clock()
-
+def create_game_state():
+    """Build everything a fresh run needs: the room chain, one enemy,
+    the player, and an empty projectile list. Called once at startup and
+    again every time the player restarts after dying."""
     rooms = generate_room_chain(settings.NUM_ROOMS)
-    current_index = 0
 
     # Drop a single stationary enemy into one of the middle rooms, offset
     # a bit from the room's exact center (which sits right on the doorway's
@@ -82,8 +86,20 @@ def main():
         Enemy(center=(enemy_room.rect.centerx, enemy_room.rect.centery - 150))
     )
 
+    current_index = 0
     player = Player(center=rooms[current_index].rect.center)
     projectiles = []
+    return rooms, current_index, player, projectiles
+
+
+def main():
+    pygame.init()
+    pygame.display.set_caption("Dark Rooms")
+    screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
+
+    rooms, current_index, player, projectiles = create_game_state()
+    game_over = False
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
     running = True
@@ -92,88 +108,95 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.KEYDOWN and game_over and event.key == pygame.K_r:
+                rooms, current_index, player, projectiles = create_game_state()
+                game_over = False
 
-        # 2. Update game state
-        current_room = rooms[current_index]
-        keys = pygame.key.get_pressed()
-        player.handle_movement(dt, keys, current_room.wall_rects)
-
-        # Once the player has walked fully past a doorway's outer edge,
-        # move to the next/previous room in the chain and place them just
-        # inside its matching doorway on the opposite side.
-        if "east" in current_room.doors and player.rect.left > current_room.rect.right:
-            current_index += 1
-            player.rect.left = settings.TILE_SIZE + settings.DOOR_ENTRY_MARGIN
-        elif "west" in current_room.doors and player.rect.right < current_room.rect.left:
-            current_index -= 1
-            new_room = rooms[current_index]
-            player.rect.right = new_room.rect.right - settings.TILE_SIZE - settings.DOOR_ENTRY_MARGIN
-
+        # current_room is needed for drawing either way (alive or dead), so
+        # it's computed outside the "not game_over" block below.
         current_room = rooms[current_index]
 
-        # Chase behavior: every enemy in the CURRENT room moves toward the
-        # player each frame, colliding with that room's own walls.
-        for enemy in current_room.enemies:
-            enemy.update(dt, player, current_room.wall_rects)
+        # 2. Update game state -- entirely skipped once game_over is True,
+        # which is what makes the world freeze in place instead of
+        # continuing to move around behind the game-over screen.
+        if not game_over:
+            keys = pygame.key.get_pressed()
+            player.handle_movement(dt, keys, current_room.wall_rects)
 
-        # Touching an enemy damages the player, unless still invulnerable
-        # from a recent hit. (The return value -- True once health hits 0
-        # -- isn't used yet; that's the game-over step coming up.)
-        player.tick_invulnerability(dt)
-        for enemy in current_room.enemies:
-            if player.rect.colliderect(enemy.rect):
-                player.take_damage(settings.ENEMY_TOUCH_DAMAGE)
+            # Once the player has walked fully past a doorway's outer edge,
+            # move to the next/previous room in the chain and place them
+            # just inside its matching doorway on the opposite side.
+            if "east" in current_room.doors and player.rect.left > current_room.rect.right:
+                current_index += 1
+                player.rect.left = settings.TILE_SIZE + settings.DOOR_ENTRY_MARGIN
+            elif "west" in current_room.doors and player.rect.right < current_room.rect.left:
+                current_index -= 1
+                new_room = rooms[current_index]
+                player.rect.right = new_room.rect.right - settings.TILE_SIZE - settings.DOOR_ENTRY_MARGIN
 
-        # Point the camera at the player, then keep it from scrolling past
-        # the CURRENT room's own edges.
-        camera_x = player.rect.centerx - settings.SCREEN_WIDTH // 2
-        camera_y = player.rect.centery - settings.SCREEN_HEIGHT // 2
-        camera_x = max(0, min(camera_x, settings.ROOM_WIDTH - settings.SCREEN_WIDTH))
-        camera_y = max(0, min(camera_y, settings.ROOM_HEIGHT - settings.SCREEN_HEIGHT))
+            current_room = rooms[current_index]
 
-        player.handle_aim(camera_x, camera_y)
-
-        # Fire while LMB is held, at most once every FIRE_INTERVAL seconds.
-        # get_pressed() checks the CURRENT held state every frame (like
-        # get_pressed() for keys), so this is what makes holding the
-        # button fire repeatedly instead of just once.
-        player.tick_cooldown(dt)
-        mouse_buttons = pygame.mouse.get_pressed()
-        left_button_held = mouse_buttons[0]
-        if left_button_held and player.can_fire():
-            projectiles.append(Projectile(player.rect.center, player.aim_dir))
-            player.reset_fire_cooldown()
-
-        # Move every projectile, then check what it hit. Looping over
-        # projectiles[:] (a copy of the list) is what makes it safe to
-        # remove items from the real `projectiles` list while we're in the
-        # middle of iterating it.
-        for projectile in projectiles[:]:
-            projectile.update(dt)
-
-            # Check enemies first -- a projectile that hits one is used up
-            # right there, regardless of whether that hit also killed it.
-            hit_enemy = None
+            # Chase behavior: every enemy in the CURRENT room moves toward
+            # the player each frame, colliding with that room's own walls.
             for enemy in current_room.enemies:
-                if projectile.get_rect().colliderect(enemy.rect):
-                    hit_enemy = enemy
-                    break
+                enemy.update(dt, player, current_room.wall_rects)
 
-            if hit_enemy is not None:
-                if hit_enemy.take_damage(settings.PROJECTILE_DAMAGE):
-                    current_room.enemies.remove(hit_enemy)
-                projectiles.remove(projectile)
-                continue
+            # Touching an enemy damages the player, unless still
+            # invulnerable from a recent hit. take_damage() returns True
+            # once health hits 0 -- that's what ends the run.
+            player.tick_invulnerability(dt)
+            for enemy in current_room.enemies:
+                if player.rect.colliderect(enemy.rect):
+                    if player.take_damage(settings.ENEMY_TOUCH_DAMAGE):
+                        game_over = True
 
-            hit_wall = any(
-                projectile.get_rect().colliderect(wall_rect)
-                for wall_rect in current_room.wall_rects
-            )
-            left_room = not current_room.rect.collidepoint(projectile.pos)
-            if hit_wall or left_room:
-                projectiles.remove(projectile)
+            # Point the camera at the player, then keep it from scrolling
+            # past the CURRENT room's own edges.
+            camera_x = player.rect.centerx - settings.SCREEN_WIDTH // 2
+            camera_y = player.rect.centery - settings.SCREEN_HEIGHT // 2
+            camera_x = max(0, min(camera_x, settings.ROOM_WIDTH - settings.SCREEN_WIDTH))
+            camera_y = max(0, min(camera_y, settings.ROOM_HEIGHT - settings.SCREEN_HEIGHT))
 
-        # 3. Draw everything
+            player.handle_aim(camera_x, camera_y)
+
+            # Fire while LMB is held, at most once every FIRE_INTERVAL
+            # seconds.
+            player.tick_cooldown(dt)
+            mouse_buttons = pygame.mouse.get_pressed()
+            left_button_held = mouse_buttons[0]
+            if left_button_held and player.can_fire():
+                projectiles.append(Projectile(player.rect.center, player.aim_dir))
+                player.reset_fire_cooldown()
+
+            # Move every projectile, then check what it hit. Looping over
+            # projectiles[:] (a copy of the list) is what makes it safe to
+            # remove items from the real `projectiles` list while we're in
+            # the middle of iterating it.
+            for projectile in projectiles[:]:
+                projectile.update(dt)
+
+                hit_enemy = None
+                for enemy in current_room.enemies:
+                    if projectile.get_rect().colliderect(enemy.rect):
+                        hit_enemy = enemy
+                        break
+
+                if hit_enemy is not None:
+                    if hit_enemy.take_damage(settings.PROJECTILE_DAMAGE):
+                        current_room.enemies.remove(hit_enemy)
+                    projectiles.remove(projectile)
+                    continue
+
+                hit_wall = any(
+                    projectile.get_rect().colliderect(wall_rect)
+                    for wall_rect in current_room.wall_rects
+                )
+                left_room = not current_room.rect.collidepoint(projectile.pos)
+                if hit_wall or left_room:
+                    projectiles.remove(projectile)
+
+        # 3. Draw everything -- always runs, game over or not, so the
+        # frozen world stays visible underneath the game-over overlay.
         screen.fill(settings.BG_COLOR)
         current_room.draw(screen, camera_x, camera_y)
         for enemy in current_room.enemies:
@@ -182,9 +205,9 @@ def main():
         for projectile in projectiles:
             projectile.draw(screen, camera_x, camera_y)
 
-        # HUD is drawn last, in plain screen coordinates (no camera
-        # involved), so it always sits on top of the world.
         hud.draw_health_bar(screen, player)
+        if game_over:
+            hud.draw_game_over(screen)
 
         pygame.display.flip()
 

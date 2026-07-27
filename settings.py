@@ -82,3 +82,10 @@ HEALTH_BAR_BG_COLOR = (50, 20, 20)      # "empty" portion
 HEALTH_BAR_FILL_COLOR = (200, 40, 40)   # "remaining health" portion
 HEALTH_BAR_BORDER_COLOR = (10, 10, 10)
 HEALTH_BAR_BORDER_WIDTH = 2
+
+# --- Game over (step 18) ---
+GAME_OVER_OVERLAY_ALPHA = 180        # 0 = invisible, 255 = fully opaque black overlay
+GAME_OVER_TITLE_COLOR = (220, 40, 40)
+GAME_OVER_TITLE_FONT_SIZE = 64
+HUD_TEXT_COLOR = (230, 230, 230)
+GAME_OVER_HINT_FONT_SIZE = 28
