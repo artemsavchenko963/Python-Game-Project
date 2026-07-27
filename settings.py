@@ -73,3 +73,12 @@ ENEMY_TOUCH_DAMAGE = 10              # damage taken per hit from touching an ene
 PLAYER_INVULNERABLE_DURATION = 1.0   # seconds of safety after being hit, so contact
                                        # doesn't melt your whole health bar in one overlap
 PLAYER_INVULNERABLE_COLOR = (255, 255, 255)  # flashes white while briefly invulnerable
+
+# --- Health bar (step 17) ---
+HUD_MARGIN = 20                      # distance from the corner of the window
+HEALTH_BAR_WIDTH = 200
+HEALTH_BAR_HEIGHT = 24
+HEALTH_BAR_BG_COLOR = (50, 20, 20)      # "empty" portion
+HEALTH_BAR_FILL_COLOR = (200, 40, 40)   # "remaining health" portion
+HEALTH_BAR_BORDER_COLOR = (10, 10, 10)
+HEALTH_BAR_BORDER_WIDTH = 2

@@ -37,6 +37,9 @@ gated by a brief invulnerability window (the player flashes white) so
 standing inside an enemy doesn't drain the whole health bar in one
 second. There's no health BAR drawn yet and no game-over screen yet --
 health can silently hit 0 for now. Both are coming up next.
+
+Step 17: an on-screen health bar, via hud.py. Drawn last, after
+everything in the world, so it always sits on top of the room/player/etc.
 """
 
 import pygame
@@ -46,6 +49,7 @@ from player import Player
 from room import Room
 from projectile import Projectile
 from enemy import Enemy
+import hud
 
 
 def generate_room_chain(num_rooms):
@@ -177,6 +181,11 @@ def main():
         player.draw(screen, camera_x, camera_y)
         for projectile in projectiles:
             projectile.draw(screen, camera_x, camera_y)
+
+        # HUD is drawn last, in plain screen coordinates (no camera
+        # involved), so it always sits on top of the world.
+        hud.draw_health_bar(screen, player)
+
         pygame.display.flip()
 
         # 4. Wait so we run at a steady FPS, and remember how long that frame
