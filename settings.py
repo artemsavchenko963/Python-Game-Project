@@ -66,3 +66,10 @@ PROJECTILE_DAMAGE = 10               # 3 hits to kill the current 30-HP enemy
 
 # --- Enemy chasing (step 15) ---
 ENEMY_SPEED = 120                    # slower than the player (250), so it's escapable
+
+# --- Player health (step 16) ---
+PLAYER_MAX_HEALTH = 100
+ENEMY_TOUCH_DAMAGE = 10              # damage taken per hit from touching an enemy
+PLAYER_INVULNERABLE_DURATION = 1.0   # seconds of safety after being hit, so contact
+                                       # doesn't melt your whole health bar in one overlap
+PLAYER_INVULNERABLE_COLOR = (255, 255, 255)  # flashes white while briefly invulnerable

@@ -22,6 +22,14 @@ class Player:
         # Starts at 0 so you can fire immediately on the very first frame.
         self.fire_cooldown = 0.0
 
+        self.max_health = settings.PLAYER_MAX_HEALTH
+        self.health = self.max_health
+
+        # Counts down to 0; while above 0, take_damage() does nothing.
+        # This is what stops standing inside an enemy from draining your
+        # whole health bar in a single second.
+        self.invulnerable_timer = 0.0
+
     def handle_movement(self, dt, keys, wall_rects):
         """Read WASD state and move, sliding along any wall_rects we bump into."""
         dx = 0
@@ -79,9 +87,24 @@ class Player:
         """Call this every time a shot is actually fired."""
         self.fire_cooldown = settings.FIRE_INTERVAL
 
+    def tick_invulnerability(self, dt):
+        """Count the invulnerability timer down toward 0. Call this once per frame."""
+        if self.invulnerable_timer > 0:
+            self.invulnerable_timer -= dt
+
+    def take_damage(self, amount):
+        """Reduce health by amount, unless currently invulnerable. Returns
+        True if this brings health to 0 (used later for the game-over state)."""
+        if self.invulnerable_timer > 0:
+            return False
+        self.health = max(0, self.health - amount)
+        self.invulnerable_timer = settings.PLAYER_INVULNERABLE_DURATION
+        return self.health <= 0
+
     def draw(self, screen, camera_x, camera_y):
         screen_rect = self.rect.move(-camera_x, -camera_y)
-        pygame.draw.rect(screen, settings.PLAYER_COLOR, screen_rect)
+        color = settings.PLAYER_INVULNERABLE_COLOR if self.invulnerable_timer > 0 else settings.PLAYER_COLOR
+        pygame.draw.rect(screen, color, screen_rect)
 
         # A short line from the player's center toward the aim direction --
         # a stand-in for "the gun" until we have real weapon sprites.

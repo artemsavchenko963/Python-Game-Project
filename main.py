@@ -31,6 +31,12 @@ it shouldn't also get to fly on and separately hit a wall the same frame.
 Step 15: enemies now chase the player. Note there's still no collision
 between the player and an enemy -- touching one won't do anything (or
 push you back) yet. That's the health system step, coming up soon.
+
+Step 16: the player now has health, and touching an enemy damages them --
+gated by a brief invulnerability window (the player flashes white) so
+standing inside an enemy doesn't drain the whole health bar in one
+second. There's no health BAR drawn yet and no game-over screen yet --
+health can silently hit 0 for now. Both are coming up next.
 """
 
 import pygame
@@ -105,6 +111,14 @@ def main():
         # player each frame, colliding with that room's own walls.
         for enemy in current_room.enemies:
             enemy.update(dt, player, current_room.wall_rects)
+
+        # Touching an enemy damages the player, unless still invulnerable
+        # from a recent hit. (The return value -- True once health hits 0
+        # -- isn't used yet; that's the game-over step coming up.)
+        player.tick_invulnerability(dt)
+        for enemy in current_room.enemies:
+            if player.rect.colliderect(enemy.rect):
+                player.take_damage(settings.ENEMY_TOUCH_DAMAGE)
 
         # Point the camera at the player, then keep it from scrolling past
         # the CURRENT room's own edges.
