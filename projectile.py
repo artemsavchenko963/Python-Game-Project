@@ -8,6 +8,11 @@ values) rather than a pygame.Rect (which only stores whole pixels) --
 that matters here because a slow-ish, precise-feeling bullet needs
 smooth sub-pixel movement, not the same integer rounding we accepted for
 the player square.
+
+Speed and damage are passed in rather than read from settings directly
+(step 19) -- different weapons fire projectiles with different stats, so
+the projectile just carries whatever numbers it was given, with no idea
+which weapon made it.
 """
 
 import pygame
@@ -16,9 +21,10 @@ import settings
 
 
 class Projectile:
-    def __init__(self, world_pos, direction):
+    def __init__(self, world_pos, direction, speed, damage):
         self.pos = pygame.Vector2(world_pos)
-        self.velocity = direction * settings.PROJECTILE_SPEED
+        self.velocity = direction * speed
+        self.damage = damage
 
     def update(self, dt):
         self.pos += self.velocity * dt

@@ -6,6 +6,7 @@ move itself (with real wall collision) and draw itself.
 import pygame
 
 import settings
+from weapon import Weapon
 
 
 class Player:
@@ -17,6 +18,14 @@ class Player:
         # vector (length 1). Defaults to facing right. This will be the
         # direction projectiles travel once we add shooting next step.
         self.aim_dir = pygame.Vector2(1, 0)
+
+        # Every weapon the player currently has, plus which one is active.
+        # No pickups yet -- both start in the inventory from the beginning.
+        self.weapons = [
+            Weapon("Pistol", settings.PISTOL_DAMAGE, settings.PISTOL_FIRE_INTERVAL, settings.PISTOL_PROJECTILE_SPEED),
+            Weapon("SMG", settings.SMG_DAMAGE, settings.SMG_FIRE_INTERVAL, settings.SMG_PROJECTILE_SPEED),
+        ]
+        self.weapon_index = 0
 
         # Counts down to 0; the player may fire again once it reaches 0.
         # Starts at 0 so you can fire immediately on the very first frame.
@@ -63,6 +72,18 @@ class Player:
                 elif dy < 0:
                     self.rect.top = wall_rect.bottom
 
+    @property
+    def equipped_weapon(self):
+        return self.weapons[self.weapon_index]
+
+    def handle_weapon_switch(self, keys):
+        """Number keys select a weapon directly by slot -- 1 is always the
+        first weapon in self.weapons, 2 the second, and so on."""
+        if keys[pygame.K_1]:
+            self.weapon_index = 0
+        elif keys[pygame.K_2]:
+            self.weapon_index = 1
+
     def handle_aim(self, camera_x, camera_y):
         """Point aim_dir from the player's on-screen position toward the mouse."""
         screen_x = self.rect.centerx - camera_x
@@ -84,8 +105,10 @@ class Player:
         return self.fire_cooldown <= 0
 
     def reset_fire_cooldown(self):
-        """Call this every time a shot is actually fired."""
-        self.fire_cooldown = settings.FIRE_INTERVAL
+        """Call this every time a shot is actually fired. Uses whichever
+        weapon is currently equipped, so switching weapons changes the
+        rate of fire immediately."""
+        self.fire_cooldown = self.equipped_weapon.fire_interval
 
     def tick_invulnerability(self, dt):
         """Count the invulnerability timer down toward 0. Call this once per frame."""

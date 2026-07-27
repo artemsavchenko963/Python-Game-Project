@@ -49,20 +49,15 @@ AIM_INDICATOR_LENGTH = 34          # how far the aim line pokes out from the pla
 AIM_INDICATOR_COLOR = (255, 225, 110)   # pale yellow, reads as "this is your weapon"
 
 # --- Shooting (step 11) ---
-PROJECTILE_SPEED = 600              # pixels per second -- faster than the player
+# Projectile radius/color are shared visuals across all weapons for now --
+# only speed/damage/fire-rate vary per weapon (see step 19).
 PROJECTILE_RADIUS = 6
 PROJECTILE_COLOR = (255, 240, 150)
-
-# --- Fire rate (step 12) ---
-FIRE_INTERVAL = 0.25                 # seconds between shots while holding LMB (4 shots/sec)
 
 # --- First enemy (step 13) ---
 ENEMY_SIZE = 36
 ENEMY_COLOR = (220, 70, 70)         # red -- reads clearly as "hostile" against the floor/wall colors
 ENEMY_MAX_HEALTH = 30
-
-# --- Bullets hurting enemies (step 14) ---
-PROJECTILE_DAMAGE = 10               # 3 hits to kill the current 30-HP enemy
 
 # --- Enemy chasing (step 15) ---
 ENEMY_SPEED = 120                    # slower than the player (250), so it's escapable
@@ -89,3 +84,15 @@ GAME_OVER_TITLE_COLOR = (220, 40, 40)
 GAME_OVER_TITLE_FONT_SIZE = 64
 HUD_TEXT_COLOR = (230, 230, 230)
 GAME_OVER_HINT_FONT_SIZE = 28
+
+# --- Weapons (step 19) ---
+# Each weapon is just a different combination of these three numbers.
+PISTOL_DAMAGE = 10                  # 3 hits to kill the current 30-HP enemy
+PISTOL_FIRE_INTERVAL = 0.25          # 4 shots/sec
+PISTOL_PROJECTILE_SPEED = 600
+
+SMG_DAMAGE = 4                       # weaker per hit...
+SMG_FIRE_INTERVAL = 0.08             # ...but fires far more often (12.5 shots/sec)
+SMG_PROJECTILE_SPEED = 650
+
+WEAPON_LABEL_FONT_SIZE = 22           # HUD text showing which weapon is equipped

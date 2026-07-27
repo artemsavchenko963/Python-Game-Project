@@ -33,6 +33,16 @@ def draw_health_bar(screen, player):
     pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, background_rect, settings.HEALTH_BAR_BORDER_WIDTH)
 
 
+def draw_weapon_label(screen, player):
+    """Shows which weapon is currently equipped, just below the health bar."""
+    font = pygame.font.SysFont(None, settings.WEAPON_LABEL_FONT_SIZE)
+    text = f"Weapon: {player.equipped_weapon.name}  (press 1 / 2)"
+    surface = font.render(text, True, settings.HUD_TEXT_COLOR)
+    x = settings.HUD_MARGIN
+    y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + 8
+    screen.blit(surface, (x, y))
+
+
 def draw_game_over(screen):
     """A dark overlay plus centered title/hint text. Fonts are created here
     each call rather than cached -- this screen isn't drawn every frame

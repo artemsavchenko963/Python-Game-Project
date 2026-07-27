@@ -14,10 +14,10 @@ Step 11: left-click fires a projectile in the aimed direction. Active
 projectiles live in one plain list here in main.py -- there's no need for
 a whole class to own "the list of all bullets" yet, a list is enough.
 
-Step 12: holding LMB down now fires repeatedly, once every
-settings.FIRE_INTERVAL seconds, instead of once per click. We switched
-from reacting to a MOUSEBUTTONDOWN event to checking
-pygame.mouse.get_pressed() every frame, gated by Player's cooldown timer.
+Step 12: holding LMB down now fires repeatedly, at a fixed interval,
+instead of once per click. We switched from reacting to a
+MOUSEBUTTONDOWN event to checking pygame.mouse.get_pressed() every
+frame, gated by Player's cooldown timer.
 
 Step 13: the first enemy -- a stationary square with health, sitting in
 one specific room. It doesn't move, and nothing can hurt it yet; this
@@ -47,6 +47,11 @@ wrapped in `if not game_over:` -- once health hits 0, the world freezes
 in place and a "YOU DIED" screen appears. Pressing R rebuilds a fresh
 game from scratch. Drawing is NOT wrapped, so the frozen world stays
 visible underneath the game-over overlay instead of vanishing.
+
+Step 19: the player now carries two weapons (Pistol, SMG) with different
+damage/fire-rate/projectile-speed, switchable with the 1/2 keys.
+Projectiles and fire_cooldown both now pull their numbers from
+player.equipped_weapon instead of fixed settings constants.
 """
 
 import pygame
@@ -122,6 +127,7 @@ def main():
         if not game_over:
             keys = pygame.key.get_pressed()
             player.handle_movement(dt, keys, current_room.wall_rects)
+            player.handle_weapon_switch(keys)
 
             # Once the player has walked fully past a doorway's outer edge,
             # move to the next/previous room in the chain and place them
@@ -159,13 +165,16 @@ def main():
 
             player.handle_aim(camera_x, camera_y)
 
-            # Fire while LMB is held, at most once every FIRE_INTERVAL
-            # seconds.
+            # Fire while LMB is held, at most once every
+            # equipped_weapon.fire_interval seconds.
             player.tick_cooldown(dt)
             mouse_buttons = pygame.mouse.get_pressed()
             left_button_held = mouse_buttons[0]
             if left_button_held and player.can_fire():
-                projectiles.append(Projectile(player.rect.center, player.aim_dir))
+                weapon = player.equipped_weapon
+                projectiles.append(
+                    Projectile(player.rect.center, player.aim_dir, weapon.projectile_speed, weapon.damage)
+                )
                 player.reset_fire_cooldown()
 
             # Move every projectile, then check what it hit. Looping over
@@ -182,7 +191,10 @@ def main():
                         break
 
                 if hit_enemy is not None:
-                    if hit_enemy.take_damage(settings.PROJECTILE_DAMAGE):
+                    # Damage comes from the projectile itself now, not a
+                    # fixed constant -- an SMG bullet and a Pistol bullet
+                    # deal different amounts.
+                    if hit_enemy.take_damage(projectile.damage):
                         current_room.enemies.remove(hit_enemy)
                     projectiles.remove(projectile)
                     continue
@@ -206,6 +218,7 @@ def main():
             projectile.draw(screen, camera_x, camera_y)
 
         hud.draw_health_bar(screen, player)
+        hud.draw_weapon_label(screen, player)
         if game_over:
             hud.draw_game_over(screen)
 
