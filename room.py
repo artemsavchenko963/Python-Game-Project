@@ -1,83 +1,106 @@
 """
-Room: owns the tile grid for one room -- where the walls are, where the
-floor is, which walls have a doorway gap in them, and how to draw only
-the tiles currently visible on screen.
+Step 21: Room now loads the whole game map from a Tiled .tmx file instead
+of generating a rectangular room in code. The old procedural system
+(border walls, door gaps, room chain) is gone -- there's just one big
+persistent map now.
+
+The whole map is pre-rendered ONCE into a single big background image
+when the map loads (self.background). Every frame, draw() just blits the
+portion of that image the camera can currently see -- much cheaper than
+redrawing thousands of individual tiles every frame, and safe to do
+because the map itself never changes while the game is running.
+
+Step 23: wall_rects is now built for real, instead of always being an
+empty list. It looks for tiles that have been given a custom boolean
+property called "solid" (settings.SOLID_TILE_PROPERTY) inside the Tiny
+Slates TILESET in Tiled -- not per map-cell, per actual tile image, so
+tagging one water tile solid makes every instance of that tile solid
+everywhere it's used across the whole map. Untagged tiles contribute
+nothing, so if you haven't tagged anything yet, wall_rects still comes
+back empty and movement is still unblocked everywhere -- same safe
+fallback as before.
 """
 
 import pygame
+from pytmx.util_pygame import load_pygame
 
 import settings
 
 
 class Room:
-    def __init__(self, doors=None):
-        self.rect = pygame.Rect(0, 0, settings.ROOM_WIDTH, settings.ROOM_HEIGHT)
+    def __init__(self, tmx_path=None):
+        tmx_path = tmx_path or settings.MAP_PATH
+        self.tmx_data = load_pygame(tmx_path)
 
-        # Which sides have a doorway gap in the wall, e.g. {"east", "west"}.
-        self.doors = doors or set()
+        map_width_px = self.tmx_data.width * self.tmx_data.tilewidth
+        map_height_px = self.tmx_data.height * self.tmx_data.tileheight
 
-        # The doorway gap is always centered on whichever wall it's on, and
-        # is the same few tiles tall on every room, so two connected rooms'
-        # doorways always line up with each other.
-        span = settings.DOOR_SPAN_TILES
-        self._door_row_start = settings.ROOM_TILES_TALL // 2 - span // 2
+        # Used everywhere the old code used a room's rect: camera
+        # clamping in main.py, and the "did this projectile leave the
+        # map" check. It's just the whole map's bounds now.
+        self.rect = pygame.Rect(0, 0, map_width_px, map_height_px)
 
-        # Precompute which tiles are solid walls (used for both drawing and
-        # collision) now that a doorway can leave a gap in the wall ring.
         self.wall_rects = self._build_wall_rects()
 
-        # Enemies belonging to this room specifically. A Room only ever
-        # knows about its OWN enemies, never other rooms' -- main.py just
-        # asks whichever room is current to update/draw its own list.
+        # Same "a room owns its own enemies/items" pattern as before --
+        # main.py fills these in right after creating the Room.
         self.enemies = []
+        self.items = []
 
-    def _is_door_gap(self, tx, ty):
-        span = settings.DOOR_SPAN_TILES
-        row_ok = self._door_row_start <= ty < self._door_row_start + span
-        if not row_ok:
-            return False
-        if "east" in self.doors and tx == settings.ROOM_TILES_WIDE - 1:
-            return True
-        if "west" in self.doors and tx == 0:
-            return True
-        return False
-
-    def is_wall_tile(self, tx, ty):
-        on_border = (
-            tx == 0 or ty == 0
-            or tx == settings.ROOM_TILES_WIDE - 1
-            or ty == settings.ROOM_TILES_TALL - 1
-        )
-        if not on_border:
-            return False
-        return not self._is_door_gap(tx, ty)
+        self.background = self._render_background(map_width_px, map_height_px)
+        self.player_spawn, self.enemy_spawn = self._read_spawn_points()
 
     def _build_wall_rects(self):
-        """One Rect per solid wall tile. Doorway gap tiles are skipped on
-        purpose -- that's what makes them passable instead of solid."""
-        t = settings.TILE_SIZE
+        """One Rect per tile that's been tagged solid in Tiled. Checks
+        every layer, since a solid tile could in principle live on any
+        of them (water on ground, a rock on nature, etc.)."""
+        tw = self.tmx_data.tilewidth
+        th = self.tmx_data.tileheight
         rects = []
-        for ty in range(settings.ROOM_TILES_TALL):
-            for tx in range(settings.ROOM_TILES_WIDE):
-                if self.is_wall_tile(tx, ty):
-                    rects.append(pygame.Rect(tx * t, ty * t, t, t))
+        for layer_name in ("ground", "decoration", "nature", "boss"):
+            layer = self.tmx_data.get_layer_by_name(layer_name)
+            for ty in range(layer.height):
+                for tx in range(layer.width):
+                    gid = layer.data[ty][tx]
+                    if gid == 0:
+                        continue
+                    props = self.tmx_data.get_tile_properties_by_gid(gid)
+                    if props and props.get(settings.SOLID_TILE_PROPERTY):
+                        rects.append(pygame.Rect(tx * tw, ty * th, tw, th))
         return rects
 
+    def _render_background(self, map_width_px, map_height_px):
+        """Draw every tile, on every layer, once, onto one big image --
+        in the same bottom-to-top order Tiled's Layers panel shows them
+        (ground, then decoration, then nature, then boss)."""
+        background = pygame.Surface((map_width_px, map_height_px))
+        for layer_name in ("ground", "decoration", "nature", "boss"):
+            layer = self.tmx_data.get_layer_by_name(layer_name)
+            for tx, ty, image in layer.tiles():
+                background.blit(image, (tx * self.tmx_data.tilewidth, ty * self.tmx_data.tileheight))
+        return background
+
+    def _read_spawn_points(self):
+        """Pull the player's and enemy's starting positions out of the
+        map's own 'spawnpoint' and 'enemy' object layers, instead of
+        hardcoding them in Python. Each of those layers currently has
+        one extra unnamed duplicate object sitting on top of the real
+        one -- checking obj.type (the object's Class field in Tiled)
+        naturally skips the duplicate, since only the real object has
+        its Class set."""
+        player_spawn = None
+        enemy_spawn = None
+        for obj in self.tmx_data.objects:
+            if obj.type == "player":
+                player_spawn = (obj.x, obj.y)
+            elif obj.type == "enemy":
+                enemy_spawn = (obj.x, obj.y)
+        return player_spawn, enemy_spawn
+
     def draw(self, screen, camera_x, camera_y):
-        t = settings.TILE_SIZE
-
-        first_tx = camera_x // t
-        first_ty = camera_y // t
-        last_tx = (camera_x + settings.SCREEN_WIDTH) // t + 1
-        last_ty = (camera_y + settings.SCREEN_HEIGHT) // t + 1
-
-        for ty in range(first_ty, last_ty):
-            for tx in range(first_tx, last_tx):
-                checker = (tx + ty) % 2 == 0
-                if self.is_wall_tile(tx, ty):
-                    color = settings.WALL_COLOR_A if checker else settings.WALL_COLOR_B
-                else:
-                    color = settings.FLOOR_COLOR_A if checker else settings.FLOOR_COLOR_B
-
-                tile_rect = pygame.Rect(tx * t - camera_x, ty * t - camera_y, t, t)
-                pygame.draw.rect(screen, color, tile_rect)
+        # Uses the destination surface's own size rather than the
+        # settings screen size, since step 22 draws everything onto a
+        # smaller internal surface first (for the zoom effect) before
+        # that gets scaled up to the real window.
+        visible_area = pygame.Rect(camera_x, camera_y, screen.get_width(), screen.get_height())
+        screen.blit(self.background, (0, 0), area=visible_area)

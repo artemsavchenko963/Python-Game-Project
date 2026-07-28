@@ -14,16 +14,22 @@ class Player:
         self.rect = pygame.Rect(0, 0, settings.PLAYER_SIZE, settings.PLAYER_SIZE)
         self.rect.center = center
 
+        # The "real" position, at full float precision. self.rect.x/y can
+        # only ever hold whole pixels, so movement math happens here
+        # instead and only gets rounded into the rect afterward -- see
+        # the note in handle_movement for why this matters.
+        self.pos = pygame.Vector2(self.rect.topleft)
+
         # Which way the player is currently facing/aiming, as a unit
         # vector (length 1). Defaults to facing right. This will be the
         # direction projectiles travel once we add shooting next step.
         self.aim_dir = pygame.Vector2(1, 0)
 
         # Every weapon the player currently has, plus which one is active.
-        # No pickups yet -- both start in the inventory from the beginning.
+        # Starts with just the Pistol -- other weapons are earned by
+        # walking over a WeaponPickup in the world (step 20).
         self.weapons = [
             Weapon("Pistol", settings.PISTOL_DAMAGE, settings.PISTOL_FIRE_INTERVAL, settings.PISTOL_PROJECTILE_SPEED),
-            Weapon("SMG", settings.SMG_DAMAGE, settings.SMG_FIRE_INTERVAL, settings.SMG_PROJECTILE_SPEED),
         ]
         self.weapon_index = 0
 
@@ -40,7 +46,19 @@ class Player:
         self.invulnerable_timer = 0.0
 
     def handle_movement(self, dt, keys, wall_rects):
-        """Read WASD state and move, sliding along any wall_rects we bump into."""
+        """Read WASD state and move, sliding along any wall_rects we bump into.
+
+        Movement is accumulated into self.pos (a float Vector2), NOT
+        straight into self.rect.x/y. self.rect.x/y can only ever hold
+        whole pixels -- assigning a fractional value truncates it away
+        every single frame. That truncation always rounds DOWN toward
+        negative infinity once the fraction is combined with a large
+        positive world coordinate, which meant moving right/down quietly
+        lost a bit of speed every frame while moving left/up gained a bit
+        -- the "W/A faster than S/D" bug. Keeping the real position in
+        self.pos and only rounding it into rect.x/y afterward fixes it:
+        all four directions now move at the exact same real speed.
+        """
         dx = 0
         dy = 0
         if keys[pygame.K_a]:
@@ -56,21 +74,28 @@ class Player:
         # step), each followed by its own collision check. This is what
         # lets you slide smoothly along a wall when moving into it at an
         # angle, instead of getting fully stopped.
-        self.rect.x += dx * settings.PLAYER_SPEED * dt
+        self.pos.x += dx * settings.PLAYER_SPEED * dt
+        self.rect.x = round(self.pos.x)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
                 if dx > 0:
                     self.rect.right = wall_rect.left
                 elif dx < 0:
                     self.rect.left = wall_rect.right
+                # A wall clamp just moved the rect directly -- pull the
+                # float position back in sync, or it'd silently drift
+                # into the wall and "remember" it next frame.
+                self.pos.x = self.rect.x
 
-        self.rect.y += dy * settings.PLAYER_SPEED * dt
+        self.pos.y += dy * settings.PLAYER_SPEED * dt
+        self.rect.y = round(self.pos.y)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
                 if dy > 0:
                     self.rect.bottom = wall_rect.top
                 elif dy < 0:
                     self.rect.top = wall_rect.bottom
+                self.pos.y = self.rect.y
 
     @property
     def equipped_weapon(self):
@@ -78,17 +103,37 @@ class Player:
 
     def handle_weapon_switch(self, keys):
         """Number keys select a weapon directly by slot -- 1 is always the
-        first weapon in self.weapons, 2 the second, and so on."""
-        if keys[pygame.K_1]:
+        first weapon in self.weapons, 2 the second, and so on. Guarded by
+        len(self.weapons) so pressing 2 before you've picked up a second
+        weapon does nothing instead of crashing."""
+        if keys[pygame.K_1] and len(self.weapons) > 0:
             self.weapon_index = 0
-        elif keys[pygame.K_2]:
+        elif keys[pygame.K_2] and len(self.weapons) > 1:
             self.weapon_index = 1
+
+    def add_weapon(self, weapon):
+        """Add a weapon to the inventory (skipping it if already carried)
+        and immediately switch to it -- called when a WeaponPickup is
+        collected."""
+        for existing in self.weapons:
+            if existing.name == weapon.name:
+                return
+        self.weapons.append(weapon)
+        self.weapon_index = len(self.weapons) - 1
 
     def handle_aim(self, camera_x, camera_y):
         """Point aim_dir from the player's on-screen position toward the mouse."""
         screen_x = self.rect.centerx - camera_x
         screen_y = self.rect.centery - camera_y
+
+        # pygame.mouse.get_pos() reports real window pixels, but step 22
+        # draws the world onto a smaller internal surface (ZOOM times
+        # smaller) before stretching it up to fill the window -- so the
+        # mouse position has to be scaled down by the same factor to land
+        # in the same coordinate space as screen_x/screen_y above.
         mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_x /= settings.ZOOM
+        mouse_y /= settings.ZOOM
 
         direction = pygame.Vector2(mouse_x - screen_x, mouse_y - screen_y)
         # Guard against the zero-length vector you'd get if the mouse were

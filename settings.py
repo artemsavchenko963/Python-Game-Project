@@ -3,18 +3,24 @@ Step 1 settings — just enough to open a window.
 We'll add more constants here later (colors, speeds, tile size) as we need them.
 """
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+# These two get OVERWRITTEN at startup (see step 25 in main.py) to match
+# whatever resolution the player's monitor actually is, since the game
+# now launches full screen. The values here only matter as a fallback,
+# before that happens.
+SCREEN_WIDTH = 1440
+SCREEN_HEIGHT = 900
 FPS = 60
 
 BG_COLOR = (20, 20, 25)  # dark grey, our "underground lab" background for now
 
 # --- Player (step 2) ---
-PLAYER_SIZE = 40                   # width/height of the square, in pixels
+# Shrunk in step 21 so the player reads as roughly "one map tile" (the
+# Tiled map's tiles are 16px) instead of towering over the whole map.
+PLAYER_SIZE = 16                   # width/height of the square, in pixels
 PLAYER_COLOR = (80, 200, 255)      # light blue
 
 # --- Player movement (step 3) ---
-PLAYER_SPEED = 250                 # pixels per SECOND (not per frame -- see main.py)
+PLAYER_SPEED = 250 / 3              # was 250 -- step 24 made it three times slower
 
 # --- Room / camera (step 5) ---
 # The room is bigger than the window, so the camera has somewhere to scroll to.
@@ -45,22 +51,22 @@ DOOR_ENTRY_MARGIN = 8              # pixels past a doorway you land at when ente
 NUM_ROOMS = 5                      # how many rooms get generated in a row
 
 # --- Aiming (step 10) ---
-AIM_INDICATOR_LENGTH = 34          # how far the aim line pokes out from the player
+AIM_INDICATOR_LENGTH = 14          # how far the aim line pokes out from the player
 AIM_INDICATOR_COLOR = (255, 225, 110)   # pale yellow, reads as "this is your weapon"
 
 # --- Shooting (step 11) ---
 # Projectile radius/color are shared visuals across all weapons for now --
 # only speed/damage/fire-rate vary per weapon (see step 19).
-PROJECTILE_RADIUS = 6
+PROJECTILE_RADIUS = 3
 PROJECTILE_COLOR = (255, 240, 150)
 
 # --- First enemy (step 13) ---
-ENEMY_SIZE = 36
+ENEMY_SIZE = 14
 ENEMY_COLOR = (220, 70, 70)         # red -- reads clearly as "hostile" against the floor/wall colors
 ENEMY_MAX_HEALTH = 30
 
 # --- Enemy chasing (step 15) ---
-ENEMY_SPEED = 120                    # slower than the player (250), so it's escapable
+ENEMY_SPEED = 120 / 3                 # was 120 -- step 24 made it three times slower too
 
 # --- Player health (step 16) ---
 PLAYER_MAX_HEALTH = 100
@@ -96,3 +102,48 @@ SMG_FIRE_INTERVAL = 0.08             # ...but fires far more often (12.5 shots/s
 SMG_PROJECTILE_SPEED = 650
 
 WEAPON_LABEL_FONT_SIZE = 22           # HUD text showing which weapon is equipped
+
+# --- Weapon pickups (step 20) ---
+PICKUP_SIZE = 10
+PICKUP_COLOR = (90, 220, 140)         # green -- clearly distinct from enemy red / projectile yellow
+PICKUP_BORDER_COLOR = (20, 60, 40)
+
+# --- Tiled map (step 21) ---
+# Path to the .tmx file, relative to main.py. "Tiny Slates.tsx" (and
+# whatever image it points to) must sit in this same folder, since the
+# .tmx references it by a relative path too.
+MAP_PATH = "maptailed.tmx"
+
+# --- Camera zoom (step 22) ---
+# The actual window stays SCREEN_WIDTH x SCREEN_HEIGHT, but the world is
+# drawn onto a SMALLER surface internally, then stretched up to fill the
+# real window -- that's what makes the camera feel closer to the player:
+# a smaller slice of the map now fills the same window space. 2 means
+# "everything on screen appears twice as big, half as much map visible."
+ZOOM = 2
+
+# --- Wall collision (step 23) ---
+# room.py builds wall_rects by looking for tiles tagged with a custom
+# boolean property called "solid" (added per-tile, inside the Tiny
+# Slates tileset, in Tiled). This is just the property NAME it looks
+# for -- if no tiles have this property set yet, wall_rects comes back
+# empty and nothing blocks movement, same as before.
+SOLID_TILE_PROPERTY = "solid"
+
+# --- Pause menu (step 25) ---
+# The pause button is drawn directly on the real window, NOT on the
+# zoomed internal surface, so it stays a fixed, crisp size no matter
+# what ZOOM is set to.
+PAUSE_BUTTON_SIZE = 44
+PAUSE_BUTTON_MARGIN = 20             # distance from the top-right corner
+PAUSE_BUTTON_COLOR = (40, 40, 50)
+PAUSE_BUTTON_BAR_COLOR = (230, 230, 230)   # the two little bars of the "II" icon
+
+PAUSE_OVERLAY_ALPHA = 170
+PAUSE_TITLE_FONT_SIZE = 56
+
+PAUSE_LEAVE_BUTTON_WIDTH = 180
+PAUSE_LEAVE_BUTTON_HEIGHT = 56
+PAUSE_LEAVE_BUTTON_COLOR = (110, 40, 40)
+PAUSE_LEAVE_BUTTON_TEXT_COLOR = (230, 230, 230)
+PAUSE_LEAVE_BUTTON_FONT_SIZE = 30

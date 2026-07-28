@@ -52,6 +52,45 @@ Step 19: the player now carries two weapons (Pistol, SMG) with different
 damage/fire-rate/projectile-speed, switchable with the 1/2 keys.
 Projectiles and fire_cooldown both now pull their numbers from
 player.equipped_weapon instead of fixed settings constants.
+
+Step 20: the player now starts with ONLY the Pistol. The SMG has to be
+found as a WeaponPickup lying in a room -- walking over it calls
+player.add_weapon(), which also auto-equips it.
+
+Step 21: the room chain is gone. There's now a single, big map loaded
+from a Tiled .tmx file (room.py handles the loading). No more
+current_index, no more door-crossing checks -- the player and enemy just
+exist somewhere on that one map, and the camera clamps to the whole
+map's pixel size instead of one room's. Collision against the map is
+OFF for now (Room.wall_rects is empty) -- that's a deliberate choice
+while the map itself is still being tested, not a bug.
+
+Step 22: camera zoom. Everything now gets drawn onto a small internal
+surface (game_surface) instead of the real window -- that internal
+surface is settings.ZOOM times smaller than the window in each
+dimension. At the very end of the frame, that small surface gets
+stretched up to fill the actual window. The net effect: a smaller slice
+of the map fills the same window space, so the camera feels closer to
+the player. The window size itself (settings.SCREEN_WIDTH/HEIGHT)
+hasn't changed -- only how much of the WORLD fits inside it.
+
+Step 23: wall collision is live. room.py now builds real wall_rects from
+any tile tagged "solid" in the Tiled tileset -- nothing changed here in
+main.py, since Player.handle_movement/Enemy.update/the projectile-vs-
+wall check already used room.wall_rects, they just had nothing in it
+before.
+
+Step 24: player and enemy movement speed are both three times slower
+(see PLAYER_SPEED/ENEMY_SPEED in settings.py) -- nothing to change here,
+main.py just reads whatever speed settings.py provides.
+
+Step 25: the game launches full screen, and there's a pause button in
+the top-right corner. Pausing works exactly like the game-over freeze --
+the update block below is skipped while paused, so the world stops in
+place -- but with its own overlay and just a "Leave" button for now
+(closes the game). The pause button/overlay are drawn directly on the
+real window, AFTER the zoomed game_surface is stretched onto it, so they
+stay a fixed, crisp size regardless of ZOOM.
 """
 
 import pygame
@@ -61,50 +100,60 @@ from player import Player
 from room import Room
 from projectile import Projectile
 from enemy import Enemy
+from weapon import Weapon
+from pickup import WeaponPickup
 import hud
 
 
-def generate_room_chain(num_rooms):
-    """Build a simple in-a-row sequence of connected rooms."""
-    rooms = []
-    for i in range(num_rooms):
-        doors = set()
-        if i > 0:
-            doors.add("west")           # connects back to the previous room
-        if i < num_rooms - 1:
-            doors.add("east")           # connects forward to the next room
-        rooms.append(Room(doors=doors))
-    return rooms
-
-
 def create_game_state():
-    """Build everything a fresh run needs: the room chain, one enemy,
-    the player, and an empty projectile list. Called once at startup and
+    """Build everything a fresh run needs: the map, one enemy, the
+    player, and an empty projectile list. Called once at startup and
     again every time the player restarts after dying."""
-    rooms = generate_room_chain(settings.NUM_ROOMS)
+    room = Room()
 
-    # Drop a single stationary enemy into one of the middle rooms, offset
-    # a bit from the room's exact center (which sits right on the doorway's
-    # path) so it's clearly visible off to one side as you walk in.
-    enemy_room = rooms[len(rooms) // 2]
-    enemy_room.enemies.append(
-        Enemy(center=(enemy_room.rect.centerx, enemy_room.rect.centery - 150))
-    )
+    # Enemy spawns wherever the map's own "enemy" object says to, instead
+    # of a hardcoded room/offset. Falls back to the map's center if the
+    # map somehow has no enemy spawn object, so this never crashes.
+    enemy_spawn = room.enemy_spawn or room.rect.center
+    room.enemies.append(Enemy(center=enemy_spawn))
 
-    current_index = 0
-    player = Player(center=rooms[current_index].rect.center)
+    # Player spawns at the map's "spawnpoint" object, same fallback idea.
+    player_spawn = room.player_spawn or room.rect.center
+    player = Player(center=player_spawn)
+
+    # An SMG pickup near the player's start, so there's still something
+    # to grab early on -- offset to the side so it's not sitting exactly
+    # on top of the spawn point.
+    smg_weapon = Weapon("SMG", settings.SMG_DAMAGE, settings.SMG_FIRE_INTERVAL, settings.SMG_PROJECTILE_SPEED)
+    pickup_center = (player_spawn[0] + 150, player_spawn[1])
+    room.items.append(WeaponPickup(center=pickup_center, weapon=smg_weapon))
+
     projectiles = []
-    return rooms, current_index, player, projectiles
+    return room, player, projectiles
 
 
 def main():
     pygame.init()
     pygame.display.set_caption("Dark Rooms")
-    screen = pygame.display.set_mode((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
+
+    # Full screen now, at whatever resolution the monitor actually is --
+    # so settings.SCREEN_WIDTH/HEIGHT get overwritten here with the real
+    # size instead of the old fixed 1440x900 fallback.
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT = screen.get_size()
+
     clock = pygame.time.Clock()
 
-    rooms, current_index, player, projectiles = create_game_state()
+    # The world is drawn onto this smaller surface, then scaled up to
+    # fill the real window each frame -- that's the whole zoom effect
+    # (see the step 22 note in the module docstring above).
+    view_width = settings.SCREEN_WIDTH // settings.ZOOM
+    view_height = settings.SCREEN_HEIGHT // settings.ZOOM
+    game_surface = pygame.Surface((view_width, view_height))
+
+    room, player, projectiles = create_game_state()
     game_over = False
+    paused = False
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
     running = True
@@ -114,54 +163,54 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN and game_over and event.key == pygame.K_r:
-                rooms, current_index, player, projectiles = create_game_state()
+                room, player, projectiles = create_game_state()
                 game_over = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if not paused and hud.get_pause_button_rect(screen).collidepoint(event.pos):
+                    paused = True
+                elif paused and hud.get_leave_button_rect(screen).collidepoint(event.pos):
+                    running = False
 
-        # current_room is needed for drawing either way (alive or dead), so
-        # it's computed outside the "not game_over" block below.
-        current_room = rooms[current_index]
-
-        # 2. Update game state -- entirely skipped once game_over is True,
-        # which is what makes the world freeze in place instead of
-        # continuing to move around behind the game-over screen.
-        if not game_over:
+        # 2. Update game state -- entirely skipped once game_over is True
+        # OR the game is paused, which is what makes the world freeze in
+        # place instead of continuing to move behind the overlay.
+        if not game_over and not paused:
             keys = pygame.key.get_pressed()
-            player.handle_movement(dt, keys, current_room.wall_rects)
+            player.handle_movement(dt, keys, room.wall_rects)
             player.handle_weapon_switch(keys)
 
-            # Once the player has walked fully past a doorway's outer edge,
-            # move to the next/previous room in the chain and place them
-            # just inside its matching doorway on the opposite side.
-            if "east" in current_room.doors and player.rect.left > current_room.rect.right:
-                current_index += 1
-                player.rect.left = settings.TILE_SIZE + settings.DOOR_ENTRY_MARGIN
-            elif "west" in current_room.doors and player.rect.right < current_room.rect.left:
-                current_index -= 1
-                new_room = rooms[current_index]
-                player.rect.right = new_room.rect.right - settings.TILE_SIZE - settings.DOOR_ENTRY_MARGIN
-
-            current_room = rooms[current_index]
-
-            # Chase behavior: every enemy in the CURRENT room moves toward
-            # the player each frame, colliding with that room's own walls.
-            for enemy in current_room.enemies:
-                enemy.update(dt, player, current_room.wall_rects)
+            # Chase behavior: every enemy on the map moves toward the
+            # player each frame, colliding with the map's walls just like
+            # the player does.
+            for enemy in room.enemies:
+                enemy.update(dt, player, room.wall_rects)
 
             # Touching an enemy damages the player, unless still
             # invulnerable from a recent hit. take_damage() returns True
             # once health hits 0 -- that's what ends the run.
             player.tick_invulnerability(dt)
-            for enemy in current_room.enemies:
+            for enemy in room.enemies:
                 if player.rect.colliderect(enemy.rect):
                     if player.take_damage(settings.ENEMY_TOUCH_DAMAGE):
                         game_over = True
 
+            # Walking over a weapon pickup collects it. Looping over
+            # room.items[:] (a copy) for the same reason as the
+            # projectile list -- we remove from the real list mid-loop.
+            for item in room.items[:]:
+                if player.rect.colliderect(item.rect):
+                    player.add_weapon(item.weapon)
+                    room.items.remove(item)
+
             # Point the camera at the player, then keep it from scrolling
-            # past the CURRENT room's own edges.
-            camera_x = player.rect.centerx - settings.SCREEN_WIDTH // 2
-            camera_y = player.rect.centery - settings.SCREEN_HEIGHT // 2
-            camera_x = max(0, min(camera_x, settings.ROOM_WIDTH - settings.SCREEN_WIDTH))
-            camera_y = max(0, min(camera_y, settings.ROOM_HEIGHT - settings.SCREEN_HEIGHT))
+            # past the MAP's own edges (room.rect is now the whole map).
+            # Uses view_width/view_height (the zoomed-in internal surface
+            # size), not the real window size, since that's how much
+            # world is actually visible at once.
+            camera_x = player.rect.centerx - view_width // 2
+            camera_y = player.rect.centery - view_height // 2
+            camera_x = max(0, min(camera_x, room.rect.width - view_width))
+            camera_y = max(0, min(camera_y, room.rect.height - view_height))
 
             player.handle_aim(camera_x, camera_y)
 
@@ -185,42 +234,54 @@ def main():
                 projectile.update(dt)
 
                 hit_enemy = None
-                for enemy in current_room.enemies:
+                for enemy in room.enemies:
                     if projectile.get_rect().colliderect(enemy.rect):
                         hit_enemy = enemy
                         break
 
                 if hit_enemy is not None:
-                    # Damage comes from the projectile itself now, not a
-                    # fixed constant -- an SMG bullet and a Pistol bullet
-                    # deal different amounts.
                     if hit_enemy.take_damage(projectile.damage):
-                        current_room.enemies.remove(hit_enemy)
+                        room.enemies.remove(hit_enemy)
                     projectiles.remove(projectile)
                     continue
 
                 hit_wall = any(
                     projectile.get_rect().colliderect(wall_rect)
-                    for wall_rect in current_room.wall_rects
+                    for wall_rect in room.wall_rects
                 )
-                left_room = not current_room.rect.collidepoint(projectile.pos)
-                if hit_wall or left_room:
+                left_map = not room.rect.collidepoint(projectile.pos)
+                if hit_wall or left_map:
                     projectiles.remove(projectile)
 
         # 3. Draw everything -- always runs, game over or not, so the
         # frozen world stays visible underneath the game-over overlay.
-        screen.fill(settings.BG_COLOR)
-        current_room.draw(screen, camera_x, camera_y)
-        for enemy in current_room.enemies:
-            enemy.draw(screen, camera_x, camera_y)
-        player.draw(screen, camera_x, camera_y)
+        # Everything draws onto game_surface (the smaller, zoomed-in
+        # surface), never directly onto the real window.
+        game_surface.fill(settings.BG_COLOR)
+        room.draw(game_surface, camera_x, camera_y)
+        for item in room.items:
+            item.draw(game_surface, camera_x, camera_y)
+        for enemy in room.enemies:
+            enemy.draw(game_surface, camera_x, camera_y)
+        player.draw(game_surface, camera_x, camera_y)
         for projectile in projectiles:
-            projectile.draw(screen, camera_x, camera_y)
+            projectile.draw(game_surface, camera_x, camera_y)
 
-        hud.draw_health_bar(screen, player)
-        hud.draw_weapon_label(screen, player)
+        hud.draw_health_bar(game_surface, player)
+        hud.draw_weapon_label(game_surface, player)
         if game_over:
-            hud.draw_game_over(screen)
+            hud.draw_game_over(game_surface)
+
+        # Stretch the finished frame up to fill the real window -- this
+        # one line is what actually makes everything look "zoomed in".
+        pygame.transform.scale(game_surface, (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), screen)
+
+        # Pause button/overlay draw directly on the real window, AFTER
+        # the zoomed world is stretched onto it -- so they sit on top of
+        # everything, and stay a fixed size no matter what ZOOM is.
+        hud.draw_pause_button(screen)
+        if paused:
+            hud.draw_pause_overlay(screen)
 
         pygame.display.flip()
 

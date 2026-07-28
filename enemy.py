@@ -15,6 +15,10 @@ class Enemy:
         self.rect = pygame.Rect(0, 0, settings.ENEMY_SIZE, settings.ENEMY_SIZE)
         self.rect.center = center
 
+        # Same reasoning as Player.pos -- see the note in
+        # Player.handle_movement for why rect.x/y alone isn't enough.
+        self.pos = pygame.Vector2(self.rect.topleft)
+
         self.max_health = settings.ENEMY_MAX_HEALTH
         self.health = self.max_health
 
@@ -29,22 +33,27 @@ class Enemy:
         if direction.length_squared() > 0:
             direction = direction.normalize()
 
-        self.rect.x += direction.x * settings.ENEMY_SPEED * dt
+        self.pos.x += direction.x * settings.ENEMY_SPEED * dt
+        self.rect.x = round(self.pos.x)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
                 if direction.x > 0:
                     self.rect.right = wall_rect.left
                 elif direction.x < 0:
                     self.rect.left = wall_rect.right
+                self.pos.x = self.rect.x
 
-        self.rect.y += direction.y * settings.ENEMY_SPEED * dt
+        self.pos.y += direction.y * settings.ENEMY_SPEED * dt
+        self.rect.y = round(self.pos.y)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
                 if direction.y > 0:
                     self.rect.bottom = wall_rect.top
                 elif direction.y < 0:
                     self.rect.top = wall_rect.bottom
+                self.pos.y = self.rect.y
 
     def draw(self, screen, camera_x, camera_y):
         screen_rect = self.rect.move(-camera_x, -camera_y)
         pygame.draw.rect(screen, settings.ENEMY_COLOR, screen_rect)
+        
