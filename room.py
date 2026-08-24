@@ -19,6 +19,13 @@ everywhere it's used across the whole map. Untagged tiles contribute
 nothing, so if you haven't tagged anything yet, wall_rects still comes
 back empty and movement is still unblocked everywhere -- same safe
 fallback as before.
+
+Step 26b: each object on the "enemy" object layer is no longer read as a
+single enemy's spawn point -- it's read as the CENTER of a whole BASE.
+self.base_spawns is a list of (x, y) points, one per object you've
+placed on that layer in Tiled. main.py (step 26c) is what actually turns
+each of those points into a guardian plus a scattered group of regular
+enemies.
 """
 
 import pygame
@@ -48,7 +55,7 @@ class Room:
         self.items = []
 
         self.background = self._render_background(map_width_px, map_height_px)
-        self.player_spawn, self.enemy_spawn = self._read_spawn_points()
+        self.player_spawn, self.base_spawns = self._read_spawn_points()
 
     def _build_wall_rects(self):
         """One Rect per tile that's been tagged solid in Tiled. Checks
@@ -81,21 +88,20 @@ class Room:
         return background
 
     def _read_spawn_points(self):
-        """Pull the player's and enemy's starting positions out of the
-        map's own 'spawnpoint' and 'enemy' object layers, instead of
-        hardcoding them in Python. Each of those layers currently has
-        one extra unnamed duplicate object sitting on top of the real
-        one -- checking obj.type (the object's Class field in Tiled)
-        naturally skips the duplicate, since only the real object has
-        its Class set."""
+        """Pull the player's starting position, and every base location,
+        out of the map's own object layers. Each object on the 'enemy'
+        layer is now a base's center point (see the step 26b note
+        above), not a single enemy. Any extra unnamed duplicate object
+        left over on a layer is skipped automatically, since only the
+        real object has its Class (obj.type) set."""
         player_spawn = None
-        enemy_spawn = None
+        base_spawns = []
         for obj in self.tmx_data.objects:
             if obj.type == "player":
                 player_spawn = (obj.x, obj.y)
             elif obj.type == "enemy":
-                enemy_spawn = (obj.x, obj.y)
-        return player_spawn, enemy_spawn
+                base_spawns.append((obj.x, obj.y))
+        return player_spawn, base_spawns
 
     def draw(self, screen, camera_x, camera_y):
         # Uses the destination surface's own size rather than the

@@ -1,0 +1,68 @@
+{
+    "activeFile": "maptailed.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "Free-Ruined-Temple-Top-Down-Location-Pixel-Art4-720x480.tsx": {
+            "scaleInDock": 0.75,
+            "scaleInEditor": 1
+        },
+        "Free-Tropical-Medieval-City-2D-Tileset2-720x480.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1.5
+        },
+        "Free-Tropical-Medieval-City-2D-Tileset3-720x480.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "Tiny Slates.tsx": {
+            "scaleInDock": 0.75,
+            "scaleInEditor": 1.5
+        },
+        "city.png.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "maptailed.tmx": {
+            "scale": 1.5,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 257.33333333333337,
+                "y": 1369.3333333333333
+            }
+        },
+        "original.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        }
+    },
+    "last.imagePath": "C:/Users/ArtemKarapuz/Pictures",
+    "map.height": 100,
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 150,
+    "openFiles": [
+        "maptailed.tmx",
+        "Tiny Slates.tsx"
+    ],
+    "project": "DRmap.tiled-project",
+    "property.type": "bool",
+    "recentFiles": [
+        "Tiny Slates.tsx",
+        "maptailed.tmx",
+        "city.png.tsx",
+        "Free-Tropical-Medieval-City-2D-Tileset3-720x480.tsx",
+        "Free-Tropical-Medieval-City-2D-Tileset2-720x480.tsx",
+        "Free-Ruined-Temple-Top-Down-Location-Pixel-Art4-720x480.tsx",
+        "original.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    },
+    "tileset.transparentColor": "#ffffff",
+    "tileset.useTransparentColor": true
+}

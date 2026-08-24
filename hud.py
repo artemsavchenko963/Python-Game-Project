@@ -43,6 +43,18 @@ def draw_weapon_label(screen, player):
     screen.blit(surface, (x, y))
 
 
+def draw_bases_label(screen, bases_remaining, total_bases):
+    """Step 26d: shows how many bases are still standing, just below the
+    weapon label. A base counts as "remaining" until its guardian AND
+    every one of its regular enemies are dead."""
+    font = pygame.font.SysFont(None, settings.BASES_LABEL_FONT_SIZE)
+    text = f"Bases: {bases_remaining}/{total_bases}"
+    surface = font.render(text, True, settings.HUD_TEXT_COLOR)
+    x = settings.HUD_MARGIN
+    y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + 8 + settings.WEAPON_LABEL_FONT_SIZE + 8
+    screen.blit(surface, (x, y))
+
+
 def draw_game_over(screen):
     """A dark overlay plus centered title/hint text. Fonts are created here
     each call rather than cached -- this screen isn't drawn every frame

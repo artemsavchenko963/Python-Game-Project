@@ -70,7 +70,8 @@ ENEMY_SPEED = 120 / 3                 # was 120 -- step 24 made it three times s
 
 # --- Player health (step 16) ---
 PLAYER_MAX_HEALTH = 100
-ENEMY_TOUCH_DAMAGE = 10              # damage taken per hit from touching an enemy
+ENEMY_TOUCH_DAMAGE = 10              # damage taken per hit from touching a REGULAR enemy
+                                       # (guardians use GUARDIAN_TOUCH_DAMAGE instead, step 26)
 PLAYER_INVULNERABLE_DURATION = 1.0   # seconds of safety after being hit, so contact
                                        # doesn't melt your whole health bar in one overlap
 PLAYER_INVULNERABLE_COLOR = (255, 255, 255)  # flashes white while briefly invulnerable
@@ -147,3 +148,28 @@ PAUSE_LEAVE_BUTTON_HEIGHT = 56
 PAUSE_LEAVE_BUTTON_COLOR = (110, 40, 40)
 PAUSE_LEAVE_BUTTON_TEXT_COLOR = (230, 230, 230)
 PAUSE_LEAVE_BUTTON_FONT_SIZE = 30
+
+# --- Bases (step 26) ---
+# Each object on the map's "enemy" layer marks the CENTER of a base, not
+# a single enemy. main.py spawns one tough, stationary guardian exactly
+# there, plus a scattered group of regular enemies around it -- clearing
+# a base means killing every one of them, guardian included.
+BASE_MIN_ENEMIES = 10                # regular enemies spawned per base...
+BASE_MAX_ENEMIES = 15                # ...random count in this range
+BASE_SCATTER_RADIUS = 50             # was 220 -- 30 would jam 10-15 units almost on
+                                       # top of each other; 50 gives enough room to
+                                       # still read as one tight camp
+
+AGGRO_RADIUS = 300                   # regular enemies only start chasing once you're this close
+
+GUARDIAN_SIZE = 30
+GUARDIAN_COLOR = (150, 30, 130)      # dark magenta -- visually distinct from regular red enemies
+GUARDIAN_MAX_HEALTH = 200
+GUARDIAN_TOUCH_DAMAGE = 25
+
+GUARDIAN_SHOOT_RANGE = 400           # guardians only fire once you're this close
+GUARDIAN_FIRE_INTERVAL = 1.2         # seconds between guardian shots
+GUARDIAN_PROJECTILE_SPEED = 400
+GUARDIAN_PROJECTILE_DAMAGE = 15
+
+BASES_LABEL_FONT_SIZE = 22            # HUD text showing bases remaining

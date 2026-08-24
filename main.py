@@ -91,7 +91,27 @@ place -- but with its own overlay and just a "Leave" button for now
 (closes the game). The pause button/overlay are drawn directly on the
 real window, AFTER the zoomed game_surface is stretched onto it, so they
 stay a fixed, crisp size regardless of ZOOM.
+
+Step 26: each object on the map's "enemy" layer is now the CENTER of a
+whole BASE, not a single enemy (room.py reads them as room.base_spawns).
+For each base, create_game_state() builds one stationary, tanky
+"guardian" Enemy exactly there, plus a random scattered group of 10-15
+regular enemies around it (regular enemies only chase once you're within
+AGGRO_RADIUS -- see enemy.py). `bases` is a list of small dicts
+{"guardian": ..., "minions": [...]} used only to compute how many bases
+are still standing, for the HUD counter -- a base counts as cleared once
+its guardian AND every one of its minions are dead.
+
+Step 27: guardians shoot. enemy_projectiles is a SEPARATE list from the
+player's own `projectiles` -- kept apart because the collision rules are
+different (an enemy projectile hits the PLAYER, never other enemies; the
+player's own projectiles hit enemies, never the player). Enemy.update()
+returns a new Projectile when a guardian just fired; main.py is what
+actually appends it into enemy_projectiles and moves/collides it every
+frame from there, the same way it already handles the player's shots.
 """
+
+import random
 
 import pygame
 
@@ -106,16 +126,31 @@ import hud
 
 
 def create_game_state():
-    """Build everything a fresh run needs: the map, one enemy, the
-    player, and an empty projectile list. Called once at startup and
-    again every time the player restarts after dying."""
+    """Build everything a fresh run needs: the map, every base (a
+    stationary guardian plus a scattered group of regular enemies around
+    it), the player, and an empty projectile list. Called once at
+    startup and again every time the player restarts after dying."""
     room = Room()
 
-    # Enemy spawns wherever the map's own "enemy" object says to, instead
-    # of a hardcoded room/offset. Falls back to the map's center if the
-    # map somehow has no enemy spawn object, so this never crashes.
-    enemy_spawn = room.enemy_spawn or room.rect.center
-    room.enemies.append(Enemy(center=enemy_spawn))
+    # One base per "enemy" object placed on the map -- falls back to a
+    # single base at the map's center if you haven't placed any, so this
+    # never crashes on an empty map.
+    base_spawns = room.base_spawns or [room.rect.center]
+    bases = []
+    for base_center in base_spawns:
+        guardian = Enemy(center=base_center, is_guardian=True)
+
+        minion_count = random.randint(settings.BASE_MIN_ENEMIES, settings.BASE_MAX_ENEMIES)
+        minions = []
+        for _ in range(minion_count):
+            offset_x = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
+            offset_y = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
+            minion_center = (base_center[0] + offset_x, base_center[1] + offset_y)
+            minions.append(Enemy(center=minion_center))
+
+        room.enemies.append(guardian)
+        room.enemies.extend(minions)
+        bases.append({"guardian": guardian, "minions": minions})
 
     # Player spawns at the map's "spawnpoint" object, same fallback idea.
     player_spawn = room.player_spawn or room.rect.center
@@ -129,7 +164,8 @@ def create_game_state():
     room.items.append(WeaponPickup(center=pickup_center, weapon=smg_weapon))
 
     projectiles = []
-    return room, player, projectiles
+    enemy_projectiles = []
+    return room, player, projectiles, enemy_projectiles, bases
 
 
 def main():
@@ -151,7 +187,7 @@ def main():
     view_height = settings.SCREEN_HEIGHT // settings.ZOOM
     game_surface = pygame.Surface((view_width, view_height))
 
-    room, player, projectiles = create_game_state()
+    room, player, projectiles, enemy_projectiles, bases = create_game_state()
     game_over = False
     paused = False
 
@@ -163,7 +199,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN and game_over and event.key == pygame.K_r:
-                room, player, projectiles = create_game_state()
+                room, player, projectiles, enemy_projectiles, bases = create_game_state()
                 game_over = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if not paused and hud.get_pause_button_rect(screen).collidepoint(event.pos):
@@ -181,17 +217,24 @@ def main():
 
             # Chase behavior: every enemy on the map moves toward the
             # player each frame, colliding with the map's walls just like
-            # the player does.
+            # the player does. A guardian never moves, and instead may
+            # return a freshly-fired Projectile here (step 27) -- that's
+            # the only case update() returns anything but None.
             for enemy in room.enemies:
-                enemy.update(dt, player, room.wall_rects)
+                new_enemy_projectile = enemy.update(dt, player, room.wall_rects)
+                if new_enemy_projectile is not None:
+                    enemy_projectiles.append(new_enemy_projectile)
 
             # Touching an enemy damages the player, unless still
             # invulnerable from a recent hit. take_damage() returns True
-            # once health hits 0 -- that's what ends the run.
+            # once health hits 0 -- that's what ends the run. Damage now
+            # comes from the enemy itself (enemy.touch_damage) instead of
+            # one fixed constant, since a guardian hits harder than a
+            # regular enemy.
             player.tick_invulnerability(dt)
             for enemy in room.enemies:
                 if player.rect.colliderect(enemy.rect):
-                    if player.take_damage(settings.ENEMY_TOUCH_DAMAGE):
+                    if player.take_damage(enemy.touch_damage):
                         game_over = True
 
             # Walking over a weapon pickup collects it. Looping over
@@ -253,6 +296,28 @@ def main():
                 if hit_wall or left_map:
                     projectiles.remove(projectile)
 
+            # Same idea as the player's projectiles above, but simpler --
+            # an enemy projectile only ever needs to check against the
+            # PLAYER, never other enemies. take_damage() already handles
+            # the invulnerability window internally, so no extra check
+            # is needed here for that.
+            for enemy_projectile in enemy_projectiles[:]:
+                enemy_projectile.update(dt)
+
+                if enemy_projectile.get_rect().colliderect(player.rect):
+                    if player.take_damage(enemy_projectile.damage):
+                        game_over = True
+                    enemy_projectiles.remove(enemy_projectile)
+                    continue
+
+                hit_wall = any(
+                    enemy_projectile.get_rect().colliderect(wall_rect)
+                    for wall_rect in room.wall_rects
+                )
+                left_map = not room.rect.collidepoint(enemy_projectile.pos)
+                if hit_wall or left_map:
+                    enemy_projectiles.remove(enemy_projectile)
+
         # 3. Draw everything -- always runs, game over or not, so the
         # frozen world stays visible underneath the game-over overlay.
         # Everything draws onto game_surface (the smaller, zoomed-in
@@ -266,9 +331,21 @@ def main():
         player.draw(game_surface, camera_x, camera_y)
         for projectile in projectiles:
             projectile.draw(game_surface, camera_x, camera_y)
+        for enemy_projectile in enemy_projectiles:
+            enemy_projectile.draw(game_surface, camera_x, camera_y)
 
         hud.draw_health_bar(game_surface, player)
         hud.draw_weapon_label(game_surface, player)
+
+        # A base still counts as "remaining" if its guardian OR any of
+        # its minions are still alive -- clearing one means ALL of them
+        # (guardian included) are dead.
+        bases_remaining = sum(
+            1 for base in bases
+            if base["guardian"].health > 0 or any(m.health > 0 for m in base["minions"])
+        )
+        hud.draw_bases_label(game_surface, bases_remaining, len(bases))
+
         if game_over:
             hud.draw_game_over(game_surface)
 
