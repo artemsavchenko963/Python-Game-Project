@@ -173,3 +173,15 @@ GUARDIAN_PROJECTILE_SPEED = 400
 GUARDIAN_PROJECTILE_DAMAGE = 15
 
 BASES_LABEL_FONT_SIZE = 22            # HUD text showing bases remaining
+
+# --- Foreground layers (step 29) ---
+# Tile layers listed here get drawn AFTER the player/enemies each frame,
+# instead of being flattened into the one static background image. That's
+# what makes a tall object (a fence, a wall top) visually cover the
+# player when they're standing "in front of" it from the camera's point
+# of view, instead of the player always drawing on top of every tile.
+# If you rename the "wall" layer in Tiled later, update the name here to
+# match -- everything else in room.py adapts to renames automatically,
+# but this one has to name an actual layer on purpose, since it needs to
+# know which tiles are "tall enough to draw over the player."
+FOREGROUND_LAYER_NAMES = {"wall", "tree"}

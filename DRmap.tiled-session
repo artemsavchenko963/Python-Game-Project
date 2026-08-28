@@ -3,6 +3,7 @@
     "expandedProjectPaths": [
         "."
     ],
+    "file.lastUsedOpenFilter": "Все файлы (*)",
     "fileStates": {
         "Free-Ruined-Temple-Top-Down-Location-Pixel-Art4-720x480.tsx": {
             "scaleInDock": 0.75,
@@ -17,41 +18,72 @@
             "scaleInEditor": 1
         },
         "Tiny Slates.tsx": {
-            "scaleInDock": 0.75,
+            "scaleInDock": 1.5,
             "scaleInEditor": 1.5
         },
         "city.png.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
+        "darktileset.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
         "maptailed.tmx": {
-            "scale": 1.5,
-            "selectedLayer": 2,
+            "expandedObjectLayers": [
+                12
+            ],
+            "scale": 0.75,
+            "selectedLayer": 0,
             "viewCenter": {
-                "x": 257.33333333333337,
-                "y": 1369.3333333333333
+                "x": -75.33333333333333,
+                "y": 1115.3333333333333
             }
+        },
+        "minigamemap.tsx": {
+            "scaleInDock": 0.33,
+            "scaleInEditor": 1.5
         },
         "original.tsx": {
             "dynamicWrapping": false,
             "scaleInDock": 1,
             "scaleInEditor": 1
+        },
+        "rooms.tsx": {
+            "scaleInDock": 0.25,
+            "scaleInEditor": 1
+        },
+        "безымянный.tmx": {
+            "scale": 0.9071180555555556,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 575.4488038277511,
+                "y": 383.63253588516744
+            }
         }
     },
-    "last.imagePath": "C:/Users/ArtemKarapuz/Pictures",
-    "map.height": 100,
+    "last.imagePath": "C:/Users/ArtemKarapuz/Downloads",
+    "map.height": 48,
+    "map.lastUsedFormat": "tmx",
     "map.tileHeight": 16,
     "map.tileWidth": 16,
-    "map.width": 150,
+    "map.width": 72,
     "openFiles": [
         "maptailed.tmx",
-        "Tiny Slates.tsx"
+        "Tiny Slates.tsx",
+        "darktileset.tsx",
+        "minigamemap.tsx",
+        "rooms.tsx"
     ],
     "project": "DRmap.tiled-project",
     "property.type": "bool",
     "recentFiles": [
+        "rooms.tsx",
+        "minigamemap.tsx",
+        "darktileset.tsx",
         "Tiny Slates.tsx",
         "maptailed.tmx",
+        "безымянный.tmx",
         "city.png.tsx",
         "Free-Tropical-Medieval-City-2D-Tileset3-720x480.tsx",
         "Free-Tropical-Medieval-City-2D-Tileset2-720x480.tsx",
@@ -64,5 +96,5 @@
         "width": 16
     },
     "tileset.transparentColor": "#ffffff",
-    "tileset.useTransparentColor": true
+    "tileset.useTransparentColor": false
 }

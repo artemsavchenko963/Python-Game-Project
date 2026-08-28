@@ -109,6 +109,14 @@ player's own projectiles hit enemies, never the player). Enemy.update()
 returns a new Projectile when a guardian just fired; main.py is what
 actually appends it into enemy_projectiles and moves/collides it every
 frame from there, the same way it already handles the player's shots.
+
+Step 29: the "wall" layer (fence/wall tiles) is no longer flattened into
+the same background image as everything else -- room.py now pre-renders
+it separately (room.foreground) and main.py draws it AFTER the
+player/enemies/projectiles each frame, via room.draw_foreground(). That's
+what makes fence tiles visually cover the player when they're standing
+"in front of" one from the camera's point of view, instead of the player
+always drawing on top of every tile on the map.
 """
 
 import random
@@ -132,10 +140,17 @@ def create_game_state():
     startup and again every time the player restarts after dying."""
     room = Room()
 
-    # One base per "enemy" object placed on the map -- falls back to a
-    # single base at the map's center if you haven't placed any, so this
-    # never crashes on an empty map.
-    base_spawns = room.base_spawns or [room.rect.center]
+    # Step 31: this USED to fall back to a single base at the map's dead
+    # center whenever room.base_spawns came back empty ("or
+    # [room.rect.center]") -- meant to avoid crashing on a totally blank
+    # map early on. But that silent fallback is exactly what caused
+    # enemies to keep appearing after deleting every "enemy" point in
+    # Tiled, or a brand new point to seemingly "spawn somewhere else" --
+    # in both cases room.base_spawns was actually empty (nothing valid
+    # was read from the map), so it silently substituted one base
+    # sitting at the map's exact center instead of showing "0 bases."
+    # Now an empty map genuinely means zero bases -- no substitute.
+    base_spawns = room.base_spawns
     bases = []
     for base_center in base_spawns:
         guardian = Enemy(center=base_center, is_guardian=True)
@@ -333,6 +348,13 @@ def main():
             projectile.draw(game_surface, camera_x, camera_y)
         for enemy_projectile in enemy_projectiles:
             enemy_projectile.draw(game_surface, camera_x, camera_y)
+
+        # Step 29: drawn AFTER every entity above, on purpose -- the
+        # "wall" layer (fence/wall tiles) needs to cover the player and
+        # enemies when they're standing "in front of" it from the
+        # camera's point of view, not sit underneath them like the rest
+        # of the map does.
+        room.draw_foreground(game_surface, camera_x, camera_y)
 
         hud.draw_health_bar(game_surface, player)
         hud.draw_weapon_label(game_surface, player)
