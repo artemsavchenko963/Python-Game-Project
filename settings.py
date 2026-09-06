@@ -185,3 +185,12 @@ BASES_LABEL_FONT_SIZE = 22            # HUD text showing bases remaining
 # but this one has to name an actual layer on purpose, since it needs to
 # know which tiles are "tall enough to draw over the player."
 FOREGROUND_LAYER_NAMES = {"wall", "tree"}
+
+# --- Victory (step 32) ---
+# Clearing every base (bases_remaining hits 0) now actually means
+# something -- a victory screen, same idea as the "YOU DIED" game-over
+# screen but the other way around. Font sizes/overlay darkness are
+# shared with the game-over screen (GAME_OVER_TITLE_FONT_SIZE,
+# GAME_OVER_HINT_FONT_SIZE, GAME_OVER_OVERLAY_ALPHA) -- only the title
+# color differs, so it doesn't look like a repeat of dying.
+VICTORY_TITLE_COLOR = (90, 220, 130)   # green -- reads as "you won", not "you died"

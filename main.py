@@ -117,6 +117,14 @@ player/enemies/projectiles each frame, via room.draw_foreground(). That's
 what makes fence tiles visually cover the player when they're standing
 "in front of" one from the camera's point of view, instead of the player
 always drawing on top of every tile on the map.
+
+Step 32: clearing every base now actually wins the game. `won` works
+exactly like `game_over` -- it freezes the update loop (movement,
+shooting, chasing, everything) and shows an overlay, just a "VICTORY"
+one instead of "YOU DIED", and R restarts from either state. bases_remaining
+was already being computed every frame for the HUD counter; this step
+just also checks "did that hit 0" and, if there were bases to begin
+with, flips `won` to True.
 """
 
 import random
@@ -204,6 +212,7 @@ def main():
 
     room, player, projectiles, enemy_projectiles, bases = create_game_state()
     game_over = False
+    won = False  # step 32: True once every base has been cleared
     paused = False
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
@@ -213,19 +222,21 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN and game_over and event.key == pygame.K_r:
+            elif event.type == pygame.KEYDOWN and (game_over or won) and event.key == pygame.K_r:
                 room, player, projectiles, enemy_projectiles, bases = create_game_state()
                 game_over = False
+                won = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if not paused and hud.get_pause_button_rect(screen).collidepoint(event.pos):
                     paused = True
                 elif paused and hud.get_leave_button_rect(screen).collidepoint(event.pos):
                     running = False
 
-        # 2. Update game state -- entirely skipped once game_over is True
-        # OR the game is paused, which is what makes the world freeze in
-        # place instead of continuing to move behind the overlay.
-        if not game_over and not paused:
+        # 2. Update game state -- entirely skipped once game_over is True,
+        # OR won is True (step 32), OR the game is paused, which is what
+        # makes the world freeze in place instead of continuing to move
+        # behind whichever overlay is showing.
+        if not game_over and not won and not paused:
             keys = pygame.key.get_pressed()
             player.handle_movement(dt, keys, room.wall_rects)
             player.handle_weapon_switch(keys)
@@ -368,8 +379,18 @@ def main():
         )
         hud.draw_bases_label(game_surface, bases_remaining, len(bases))
 
+        # Step 32: clearing every base wins -- but only if there WERE
+        # bases to clear in the first place (an empty map, `bases == []`,
+        # shouldn't instantly count as a win). Guarded by `not game_over`
+        # too, so dying on the very last hit that also clears the final
+        # base shows the death screen, not victory.
+        if bases and bases_remaining == 0 and not game_over:
+            won = True
+
         if game_over:
             hud.draw_game_over(game_surface)
+        elif won:
+            hud.draw_victory(game_surface)
 
         # Stretch the finished frame up to fill the real window -- this
         # one line is what actually makes everything look "zoomed in".
@@ -393,3 +414,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

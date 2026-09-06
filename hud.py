@@ -81,6 +81,29 @@ def draw_game_over(screen):
     screen.blit(hint_surface, hint_rect)
 
 
+def draw_victory(screen):
+    """Step 32: the mirror image of draw_game_over -- same layout (dark
+    overlay, centered title, a hint underneath), but green title text and
+    different wording, so clearing every base doesn't look like dying."""
+    overlay = pygame.Surface((screen.get_width(), screen.get_height()))
+    overlay.fill((0, 0, 0))
+    overlay.set_alpha(settings.GAME_OVER_OVERLAY_ALPHA)
+    screen.blit(overlay, (0, 0))
+
+    center_x = screen.get_width() // 2
+    center_y = screen.get_height() // 2
+
+    title_font = pygame.font.SysFont(None, settings.GAME_OVER_TITLE_FONT_SIZE)
+    title_surface = title_font.render("VICTORY", True, settings.VICTORY_TITLE_COLOR)
+    title_rect = title_surface.get_rect(center=(center_x, center_y - 20))
+    screen.blit(title_surface, title_rect)
+
+    hint_font = pygame.font.SysFont(None, settings.GAME_OVER_HINT_FONT_SIZE)
+    hint_surface = hint_font.render("All bases cleared -- press R to play again", True, settings.HUD_TEXT_COLOR)
+    hint_rect = hint_surface.get_rect(center=(center_x, center_y + 40))
+    screen.blit(hint_surface, hint_rect)
+
+
 def get_pause_button_rect(screen):
     """Where the pause button sits, in real window coordinates. A
     separate function (rather than computing this inline in
@@ -145,3 +168,4 @@ def draw_pause_overlay(screen):
     button_text = button_font.render("Leave", True, settings.PAUSE_LEAVE_BUTTON_TEXT_COLOR)
     text_rect = button_text.get_rect(center=button_rect.center)
     screen.blit(button_text, text_rect)
+    
