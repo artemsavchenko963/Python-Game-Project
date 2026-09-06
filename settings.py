@@ -115,13 +115,16 @@ PICKUP_BORDER_COLOR = (20, 60, 40)
 # .tmx references it by a relative path too.
 MAP_PATH = "maptailed.tmx"
 
-# --- Camera zoom (step 22) ---
+# --- Camera zoom (step 22, lowered step 33) ---
 # The actual window stays SCREEN_WIDTH x SCREEN_HEIGHT, but the world is
 # drawn onto a SMALLER surface internally, then stretched up to fill the
 # real window -- that's what makes the camera feel closer to the player:
 # a smaller slice of the map now fills the same window space. 2 means
 # "everything on screen appears twice as big, half as much map visible."
-ZOOM = 2
+# Lowered from 2 to 1.5 (step 33) so more of the map is visible around
+# the player -- can be any number, including fractions like this one,
+# not just whole numbers.
+ZOOM = 1.5
 
 # --- Wall collision (step 23) ---
 # room.py builds wall_rects by looking for tiles tagged with a custom
@@ -184,7 +187,7 @@ BASES_LABEL_FONT_SIZE = 22            # HUD text showing bases remaining
 # match -- everything else in room.py adapts to renames automatically,
 # but this one has to name an actual layer on purpose, since it needs to
 # know which tiles are "tall enough to draw over the player."
-FOREGROUND_LAYER_NAMES = {"wall", "tree"}
+FOREGROUND_LAYER_NAMES = {"spawnloc"}
 
 # --- Victory (step 32) ---
 # Clearing every base (bases_remaining hits 0) now actually means
@@ -194,3 +197,13 @@ FOREGROUND_LAYER_NAMES = {"wall", "tree"}
 # GAME_OVER_HINT_FONT_SIZE, GAME_OVER_OVERLAY_ALPHA) -- only the title
 # color differs, so it doesn't look like a repeat of dying.
 VICTORY_TITLE_COLOR = (90, 220, 130)   # green -- reads as "you won", not "you died"
+
+# --- Fog of war / limited vision (step 34) ---
+# A dark, horror-style vignette centered on the player: fully visible
+# close up, fading to fully black/hidden further out. Both radii are in
+# WORLD pixels (same units as PLAYER_SPEED, AGGRO_RADIUS, etc.) -- ZOOM
+# only affects how big things look on screen, not these distances, so
+# you don't need to re-tune this if ZOOM changes later.
+FOG_COLOR = (0, 0, 0)
+FOG_INNER_RADIUS = 220   # fully visible within this distance of the player
+FOG_OUTER_RADIUS = 420   # fully black/hidden beyond this distance -- fades in between

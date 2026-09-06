@@ -125,8 +125,19 @@ one instead of "YOU DIED", and R restarts from either state. bases_remaining
 was already being computed every frame for the HUD counter; this step
 just also checks "did that hit 0" and, if there were bases to begin
 with, flips `won` to True.
+
+Step 33: ZOOM can now be a fraction (lowered to 1.5) -- view_width/height
+now use true division + int(), not integer //, so a non-whole ZOOM still
+produces a valid surface size.
+
+Step 34: a dark, radial "fog of war" vignette now sits over the world
+every frame -- see the module-level _build_fog_surface() function below
+for how it's built (once, at startup, not per-frame -- that would be far
+too slow), and the draw section for how it's positioned each frame so
+its bright center always lines up with wherever the player is on screen.
 """
 
+import math
 import random
 
 import pygame
@@ -191,6 +202,60 @@ def create_game_state():
     return room, player, projectiles, enemy_projectiles, bases
 
 
+def _build_fog_surface(view_width, view_height):
+    """Step 34: pre-render the radial "fog of war" gradient ONCE at
+    startup, not every frame -- computing a soft gradient pixel-by-pixel
+    every single frame would tank the framerate. The trick: build a
+    small, cheap version of the gradient (SMALL_SIZE x SMALL_SIZE, so the
+    pixel-by-pixel loop below is fast), then smoothscale it up to full
+    size -- scaling is done in C by pygame, so it's effectively free
+    compared to computing every pixel by hand at full resolution.
+
+    view_width/view_height are the zoomed internal game_surface's own
+    size. Returns (fog_surface, radius) -- radius is HALF the surface's
+    width (and height; it's always square), which the draw loop needs to
+    know how far to offset it so the surface's center lands exactly on
+    the player's on-screen position.
+    """
+    # Big enough that even if the player is shoved into a corner of the
+    # screen (camera clamped near the map's edge), the fog still reaches
+    # every corner of game_surface -- the worst case is the player at
+    # one corner and the surface's opposite corner needing to be fully
+    # dark, which is exactly game_surface's own diagonal.
+    radius = int(math.hypot(view_width, view_height)) + 1
+    full_size = radius * 2
+
+    # Compute the gradient at a much smaller size, then scale up -- but
+    # DOWNSCALE has to be accounted for when comparing against
+    # FOG_INNER_RADIUS/FOG_OUTER_RADIUS below, or the actual on-screen
+    # fog distances would depend on the window's resolution instead of
+    # staying fixed at whatever those two settings say (in real
+    # WORLD-pixel units, same as PLAYER_SPEED/AGGRO_RADIUS/etc).
+    downscale = 4
+    small_size = max(1, full_size // downscale)
+    small_radius = small_size // 2
+    small_fog = pygame.Surface((small_size, small_size), pygame.SRCALPHA)
+    inner = settings.FOG_INNER_RADIUS
+    outer = settings.FOG_OUTER_RADIUS
+    for y in range(small_size):
+        for x in range(small_size):
+            # Scaled back UP by `downscale` so this compares against
+            # inner/outer in real world-pixel units, even though we're
+            # only actually looping over the small, cheap-to-compute
+            # image.
+            distance = math.hypot(x - small_radius, y - small_radius) * downscale
+            if distance <= inner:
+                alpha = 0
+            elif distance >= outer:
+                alpha = 255
+            else:
+                alpha = int(255 * (distance - inner) / (outer - inner))
+            small_fog.set_at((x, y), (*settings.FOG_COLOR, alpha))
+
+    fog_surface = pygame.transform.smoothscale(small_fog, (full_size, full_size))
+    return fog_surface, radius
+
+
 def main():
     pygame.init()
     pygame.display.set_caption("Dark Rooms")
@@ -205,10 +270,18 @@ def main():
 
     # The world is drawn onto this smaller surface, then scaled up to
     # fill the real window each frame -- that's the whole zoom effect
-    # (see the step 22 note in the module docstring above).
-    view_width = settings.SCREEN_WIDTH // settings.ZOOM
-    view_height = settings.SCREEN_HEIGHT // settings.ZOOM
+    # (see the step 22 note in the module docstring above). Uses true
+    # division + int() rather than // (step 33) so a fractional ZOOM
+    # like 1.5 still produces a valid whole-pixel surface size.
+    view_width = int(settings.SCREEN_WIDTH / settings.ZOOM)
+    view_height = int(settings.SCREEN_HEIGHT / settings.ZOOM)
     game_surface = pygame.Surface((view_width, view_height))
+
+    # Step 34: built once here, not per-frame -- see _build_fog_surface's
+    # own docstring for why. fog_radius is how far the fog surface's own
+    # center sits from ITS top-left corner, needed every frame to offset
+    # it so that center lands exactly on the player's screen position.
+    fog_surface, fog_radius = _build_fog_surface(view_width, view_height)
 
     room, player, projectiles, enemy_projectiles, bases = create_game_state()
     game_over = False
@@ -367,6 +440,16 @@ def main():
         # of the map does.
         room.draw_foreground(game_surface, camera_x, camera_y)
 
+        # Step 34: the fog vignette goes on top of the whole world (map,
+        # items, enemies, player, projectiles) but UNDER the HUD -- the
+        # health bar/weapon label/bases counter should always stay fully
+        # readable, never dimmed by the fog. Positioned so the fog
+        # surface's own center (fog_radius, fog_radius) lands exactly on
+        # the player's on-screen position, wherever that currently is.
+        player_screen_x = player.rect.centerx - camera_x
+        player_screen_y = player.rect.centery - camera_y
+        game_surface.blit(fog_surface, (player_screen_x - fog_radius, player_screen_y - fog_radius))
+
         hud.draw_health_bar(game_surface, player)
         hud.draw_weapon_label(game_surface, player)
 
@@ -414,4 +497,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
