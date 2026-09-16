@@ -269,3 +269,34 @@ MENU_BUTTON_HOVER_COLOR = (75, 75, 95)   # lit up when the mouse is over it
 MENU_BUTTON_BORDER_COLOR = (10, 10, 10)
 MENU_BUTTON_TEXT_COLOR = (230, 230, 230)
 MENU_BUTTON_FONT_SIZE = 34
+
+# --- Instructions screen (step 37) ---
+# Shown once, right after a difficulty is picked and before the map loads --
+# a black screen of plain text explaining the minefield mechanic (and the
+# basic controls), with a "press any key" hint at the bottom. Blocks the
+# same way menu.run() does; closing the window here also quits immediately,
+# same as closing it at the difficulty menu.
+INSTRUCTIONS_TITLE_TEXT = "How to Survive"
+INSTRUCTIONS_LINES = [
+    "The whole map outside the castle is full of hidden mines.",
+    "Mines are invisible until you scan for them -- press E to pulse-scan",
+    "the area around you; any mines caught in that pulse light up for a",
+    "few seconds, then fade back to invisible (they're still there, and",
+    "still lethal, the whole time -- only the drawing is affected).",
+    "Scanning has a short cooldown before you can scan again.",
+    "",
+    "Walking into a mine -- revealed or not -- damages you and destroys it.",
+    "Press F near a mine you've just revealed to defuse it safely instead.",
+    "",
+    "WASD / arrow keys to move, mouse to aim, left click to fire.",
+    "Clear every enemy base to win. Good luck.",
+]
+INSTRUCTIONS_TITLE_FONT_SIZE = 56
+INSTRUCTIONS_TITLE_COLOR = (230, 230, 230)
+INSTRUCTIONS_LINE_FONT_SIZE = 28
+INSTRUCTIONS_LINE_COLOR = (210, 210, 210)
+INSTRUCTIONS_LINE_GAP = 12             # vertical space between lines of text
+INSTRUCTIONS_HINT_TEXT = "Press any key or click to continue"
+INSTRUCTIONS_HINT_FONT_SIZE = 24
+INSTRUCTIONS_HINT_COLOR = (150, 150, 150)
+INSTRUCTIONS_HINT_MARGIN = 60          # distance from the bottom of the screen

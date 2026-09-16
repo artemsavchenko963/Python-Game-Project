@@ -433,6 +433,15 @@ def main():
         return
     difficulty = settings.DIFFICULTIES[difficulty_name]
 
+    # Step 37: a black instructions screen explaining the minefield
+    # mechanic and basic controls, shown once right after the difficulty
+    # is picked and before the map loads. Blocks until any key/click,
+    # same pattern as the difficulty menu above -- closing the window
+    # here also quits immediately instead of continuing into the game.
+    if not menu.run_instructions(screen, clock):
+        pygame.quit()
+        return
+
     # The world is drawn onto this smaller surface, then scaled up to
     # fill the real window each frame -- that's the whole zoom effect
     # (see the step 22 note in the module docstring above). Uses true

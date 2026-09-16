@@ -78,3 +78,60 @@ def run(screen, clock):
 
         pygame.display.flip()
         clock.tick(settings.FPS)
+
+
+def run_instructions(screen, clock):
+    """Step 37: a black instructions screen shown once, right after the
+    difficulty menu, explaining the minefield mechanic and basic controls.
+    Blocks until any key is pressed or the mouse is clicked, then returns
+    True. Returns False if the window was closed instead, which main()
+    treats the same as closing the difficulty menu -- quit immediately."""
+    title_font = pygame.font.SysFont(None, settings.INSTRUCTIONS_TITLE_FONT_SIZE)
+    line_font = pygame.font.SysFont(None, settings.INSTRUCTIONS_LINE_FONT_SIZE)
+    hint_font = pygame.font.SysFont(None, settings.INSTRUCTIONS_HINT_FONT_SIZE)
+
+    title_surface = title_font.render(
+        settings.INSTRUCTIONS_TITLE_TEXT, True, settings.INSTRUCTIONS_TITLE_COLOR
+    )
+
+    line_surfaces = [
+        line_font.render(line, True, settings.INSTRUCTIONS_LINE_COLOR) if line else None
+        for line in settings.INSTRUCTIONS_LINES
+    ]
+    # Blank lines (empty strings) render as None -- treated as a spacer
+    # the height of a normal line, so paragraph breaks still take up room.
+    line_height = line_font.get_height()
+
+    hint_surface = hint_font.render(
+        settings.INSTRUCTIONS_HINT_TEXT, True, settings.INSTRUCTIONS_HINT_COLOR
+    )
+
+    center_x = screen.get_width() // 2
+    total_lines_height = len(line_surfaces) * line_height + (len(line_surfaces) - 1) * settings.INSTRUCTIONS_LINE_GAP
+    lines_start_y = screen.get_height() // 2 - total_lines_height // 2
+    title_rect = title_surface.get_rect(center=(center_x, lines_start_y - 80))
+    hint_rect = hint_surface.get_rect(
+        center=(center_x, screen.get_height() - settings.INSTRUCTIONS_HINT_MARGIN)
+    )
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                return True
+
+        screen.fill(settings.MENU_BG_COLOR)
+        screen.blit(title_surface, title_rect)
+
+        y = lines_start_y
+        for line_surface in line_surfaces:
+            if line_surface is not None:
+                line_rect = line_surface.get_rect(center=(center_x, y + line_height // 2))
+                screen.blit(line_surface, line_rect)
+            y += line_height + settings.INSTRUCTIONS_LINE_GAP
+
+        screen.blit(hint_surface, hint_rect)
+
+        pygame.display.flip()
+        clock.tick(settings.FPS)
