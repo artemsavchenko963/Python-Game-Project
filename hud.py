@@ -55,6 +55,30 @@ def draw_bases_label(screen, bases_remaining, total_bases):
     screen.blit(surface, (x, y))
 
 
+def draw_scanner_label(screen, scanner_cooldown):
+    """Step 35: shows whether E (scan) is ready or still on cooldown,
+    just below the bases label -- without this there'd be no way to
+    tell "can I scan again yet" other than pressing E and seeing nothing
+    happen."""
+    font = pygame.font.SysFont(None, settings.SCANNER_LABEL_FONT_SIZE)
+    if scanner_cooldown <= 0:
+        text = "Scanner: Ready (E)   Defuse (F)"
+    else:
+        text = f"Scanner: {scanner_cooldown:.1f}s   Defuse (F)"
+    surface = font.render(text, True, settings.HUD_TEXT_COLOR)
+    x = settings.HUD_MARGIN
+    y = (
+        settings.HUD_MARGIN
+        + settings.HEALTH_BAR_HEIGHT
+        + 8
+        + settings.WEAPON_LABEL_FONT_SIZE
+        + 8
+        + settings.BASES_LABEL_FONT_SIZE
+        + 8
+    )
+    screen.blit(surface, (x, y))
+
+
 def draw_game_over(screen):
     """A dark overlay plus centered title/hint text. Fonts are created here
     each call rather than cached -- this screen isn't drawn every frame
@@ -168,4 +192,3 @@ def draw_pause_overlay(screen):
     button_text = button_font.render("Leave", True, settings.PAUSE_LEAVE_BUTTON_TEXT_COLOR)
     text_rect = button_text.get_rect(center=button_rect.center)
     screen.blit(button_text, text_rect)
-    

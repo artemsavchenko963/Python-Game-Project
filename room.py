@@ -37,6 +37,10 @@ them, and skip anything that isn't a tile layer (object layers like
 "spawnpoint"/"enemy" are skipped automatically). Rename or add tile
 layers in Tiled as much as you want -- nothing here needs to change to
 match.
+
+Step 35: reads one more object type -- a rectangle with Class "castle" --
+into self.castle_rect, so main.py knows which area of the map the
+minefield has to leave alone.
 """
 
 import pygame
@@ -84,7 +88,7 @@ class Room:
         # "behind" them from the camera's point of view.
         self.foreground = self._render_foreground(map_width_px, map_height_px)
 
-        self.player_spawn, self.base_spawns = self._read_spawn_points()
+        self.player_spawn, self.base_spawns, self.castle_rect = self._read_spawn_points()
 
     def _build_wall_rects(self):
         """One Rect per tile that's been tagged solid in Tiled. Checks
@@ -144,20 +148,30 @@ class Room:
         return foreground
 
     def _read_spawn_points(self):
-        """Pull the player's starting position, and every base location,
-        out of the map's own object layers. Each object on the 'enemy'
-        layer is now a base's center point (see the step 26b note
-        above), not a single enemy. Any extra unnamed duplicate object
-        left over on a layer is skipped automatically, since only the
-        real object has its Class (obj.type) set."""
+        """Pull the player's starting position, every base location, and
+        the castle's bounds out of the map's own objects. Each object on
+        the 'enemy' layer is now a base's center point (see the step 26b
+        note above), not a single enemy. Any extra unnamed duplicate
+        object left over on a layer is skipped automatically, since only
+        the real object has its Class (obj.type) set.
+
+        Step 35: a single RECTANGLE object with its Class set to
+        "castle" marks the safe area the minefield has to avoid -- draw
+        it around whatever building you want mines to never spawn
+        inside. castle_rect comes back as None if you haven't placed one
+        yet, which main.py treats as "no safe zone, mines can spawn
+        anywhere" rather than crashing."""
         player_spawn = None
         base_spawns = []
+        castle_rect = None
         for obj in self.tmx_data.objects:
             if obj.type == "player":
                 player_spawn = (obj.x, obj.y)
             elif obj.type == "enemy":
                 base_spawns.append((obj.x, obj.y))
-        return player_spawn, base_spawns
+            elif obj.type == "castle":
+                castle_rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+        return player_spawn, base_spawns, castle_rect
 
     def draw(self, screen, camera_x, camera_y):
         # Uses the destination surface's own size rather than the

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.12.2" name="darktileset" tilewidth="16" tileheight="16" tilecount="6144" columns="96">
- <image source="../../../../../Downloads/ChatGPT Image 26 авг. 2026 г., 18_47_37.png" trans="0e0e0e" width="1536" height="1024"/>
+ <image source="darktileset_source.png" trans="0e0e0e" width="1536" height="1024"/>
  <tile id="340" type="solid">
   <properties>
    <property name="solid" type="bool" value="false"/>

@@ -1,5 +1,5 @@
 {
-    "activeFile": "maptailed.tmx",
+    "activeFile": "darktileset.tsx",
     "expandedProjectPaths": [
         "."
     ],
@@ -18,31 +18,46 @@
             "scaleInEditor": 1
         },
         "Tiny Slates.tsx": {
+            "dynamicWrapping": false,
             "scaleInDock": 1.5,
-            "scaleInEditor": 1.5
+            "scaleInEditor": 1
+        },
+        "bckg.tsx": {
+            "scaleInDock": 0.33,
+            "scaleInEditor": 0.5
+        },
+        "castle.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1.5,
+            "scaleInEditor": 0.25
         },
         "city.png.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
         "darktileset.tsx": {
-            "scaleInDock": 1,
+            "scaleInDock": 1.5,
             "scaleInEditor": 1
+        },
+        "map.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 0.33,
+            "scaleInEditor": 0.5
         },
         "maptailed.tmx": {
             "expandedObjectLayers": [
                 12
             ],
             "scale": 0.75,
-            "selectedLayer": 0,
+            "selectedLayer": 5,
             "viewCenter": {
-                "x": -75.33333333333333,
-                "y": 1115.3333333333333
+                "x": 2590.6666666666665,
+                "y": 1016
             }
         },
         "minigamemap.tsx": {
-            "scaleInDock": 0.33,
-            "scaleInEditor": 1.5
+            "scaleInDock": 0.75,
+            "scaleInEditor": 1
         },
         "original.tsx": {
             "dynamicWrapping": false,
@@ -50,6 +65,12 @@
             "scaleInEditor": 1
         },
         "rooms.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 0.25,
+            "scaleInEditor": 1
+        },
+        "spawnlocation.tsx": {
+            "dynamicWrapping": true,
             "scaleInDock": 0.25,
             "scaleInEditor": 1
         },
@@ -73,22 +94,27 @@
         "Tiny Slates.tsx",
         "darktileset.tsx",
         "minigamemap.tsx",
-        "rooms.tsx"
+        "rooms.tsx",
+        "map.tsx",
+        "bckg.tsx",
+        "castle.tsx",
+        "spawnlocation.tsx"
     ],
     "project": "DRmap.tiled-project",
     "property.type": "bool",
     "recentFiles": [
         "rooms.tsx",
         "minigamemap.tsx",
-        "darktileset.tsx",
-        "Tiny Slates.tsx",
+        "castle.tsx",
+        "spawnlocation.tsx",
         "maptailed.tmx",
+        "Tiny Slates.tsx",
+        "bckg.tsx",
+        "map.tsx",
+        "darktileset.tsx",
         "безымянный.tmx",
         "city.png.tsx",
-        "Free-Tropical-Medieval-City-2D-Tileset3-720x480.tsx",
-        "Free-Tropical-Medieval-City-2D-Tileset2-720x480.tsx",
-        "Free-Ruined-Temple-Top-Down-Location-Pixel-Art4-720x480.tsx",
-        "original.tsx"
+        "Free-Tropical-Medieval-City-2D-Tileset3-720x480.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {
