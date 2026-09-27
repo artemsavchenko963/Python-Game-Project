@@ -173,6 +173,8 @@ from enemy import Enemy
 from weapon import Weapon
 from pickup import WeaponPickup
 from mine import Mine
+from explosion import Explosion
+from hit_effect import HitEffect
 import menu
 import hud
 
@@ -458,6 +460,8 @@ def main():
     fog_surface, fog_radius = _build_fog_surface(view_width, view_height)
 
     room, player, projectiles, enemy_projectiles, bases, mines = create_game_state(difficulty)
+    explosions = []  # step 38: one per mine that's actually detonated, not defused
+    hit_effects = []  # step 43: one per bullet that actually hit something
     game_over = False
     won = False  # step 32: True once every base has been cleared
     paused = False
@@ -474,6 +478,8 @@ def main():
                 # Restarting keeps the SAME difficulty you picked at the
                 # menu -- it does not send you back to the menu screen.
                 room, player, projectiles, enemy_projectiles, bases, mines = create_game_state(difficulty)
+                explosions = []
+                hit_effects = []
                 game_over = False
                 won = False
                 scanner_cooldown = 0.0
@@ -543,6 +549,12 @@ def main():
             scanner_cooldown = max(0.0, scanner_cooldown - dt)
             for mine in mines:
                 mine.update(dt)
+            for explosion in explosions:
+                explosion.update(dt)
+            explosions = [explosion for explosion in explosions if not explosion.is_finished]
+            for hit_effect in hit_effects:
+                hit_effect.update(dt)
+            hit_effects = [hit_effect for hit_effect in hit_effects if not hit_effect.is_finished]
 
             # A mine is lethal whether or not it's currently visible --
             # only the drawing cares about is_revealed, collision
@@ -552,6 +564,7 @@ def main():
                 if player.rect.colliderect(mine.rect):
                     if player.take_damage(settings.MINE_DAMAGE):
                         game_over = True
+                    explosions.append(Explosion(mine.rect.center))
                     mines.remove(mine)
 
             # Chase behavior: every enemy on the map moves toward the
@@ -622,6 +635,7 @@ def main():
                         break
 
                 if hit_enemy is not None:
+                    hit_effects.append(HitEffect(projectile.pos))
                     if hit_enemy.take_damage(projectile.damage):
                         room.enemies.remove(hit_enemy)
                     projectiles.remove(projectile)
@@ -644,6 +658,7 @@ def main():
                 enemy_projectile.update(dt)
 
                 if enemy_projectile.get_rect().colliderect(player.rect):
+                    hit_effects.append(HitEffect(enemy_projectile.pos))
                     if player.take_damage(enemy_projectile.damage):
                         game_over = True
                     enemy_projectiles.remove(enemy_projectile)
@@ -674,6 +689,10 @@ def main():
             projectile.draw(game_surface, camera_x, camera_y)
         for enemy_projectile in enemy_projectiles:
             enemy_projectile.draw(game_surface, camera_x, camera_y)
+        for explosion in explosions:
+            explosion.draw(game_surface, camera_x, camera_y)
+        for hit_effect in hit_effects:
+            hit_effect.draw(game_surface, camera_x, camera_y)
 
         # Step 29: drawn AFTER every entity above, on purpose -- the
         # "wall" layer (fence/wall tiles) needs to cover the player and

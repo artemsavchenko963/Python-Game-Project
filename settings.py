@@ -214,9 +214,21 @@ FOG_OUTER_RADIUS = 420   # fully black/hidden beyond this distance -- fades in b
 # "castle") plus a small extra margin, never on top of a solid wall
 # tile, and never right on top of where the player starts.
 MINE_SIZE = 14                       # was 10 -- a bit bigger, easier to spot/read once revealed
-MINE_COLOR = (210, 140, 30)          # orange -- reads as "danger" once revealed
+MINE_COLOR = (210, 140, 30)          # orange -- reads as "danger" once revealed -- only
+                                       # used as a fallback if MINE_IMAGE_PATH fails to load
 MINE_BORDER_COLOR = (90, 55, 10)
 MINE_DAMAGE = 35
+
+# Step 40: a real icon (mine.jpg) instead of the plain orange square --
+# same idea as the player sprite (step 39): a plain JPEG can't store real
+# transparency, so it has a light gray/white checkerboard baked into its
+# background pixels instead, which mine.py strips out at load time the
+# same way player.py does. Drawn a bit bigger than the actual collision
+# rect (MINE_SIZE) so the artwork reads clearly once revealed -- the
+# hitbox/collision size is completely unaffected by this.
+MINE_IMAGE_PATH = "assets/images/mines/mine.jpg"
+MINE_DISPLAY_SIZE = 26
+MINE_CHECKER_BRIGHTNESS_THRESHOLD = 175
 MINE_COUNT = 90                      # was 40 -- felt sparse across the whole map
 MINE_CASTLE_MARGIN = 40              # extra buffer added around the castle rect
 MINE_PLAYER_SPAWN_SAFE_RADIUS = 100  # no mine spawns this close to the player's start
@@ -300,3 +312,100 @@ INSTRUCTIONS_HINT_TEXT = "Press any key or click to continue"
 INSTRUCTIONS_HINT_FONT_SIZE = 24
 INSTRUCTIONS_HINT_COLOR = (150, 150, 150)
 INSTRUCTIONS_HINT_MARGIN = 60          # distance from the bottom of the screen
+
+# --- Mine explosion animation (step 38) ---
+# Played once wherever a mine actually detonates (the player walked into
+# it) -- NOT when it's safely defused with F, since defusing is meant to
+# be the quiet, "did it right" outcome. Three frames, one image file each,
+# cycled once and then gone. Paths are relative to main.py, same as
+# MAP_PATH above.
+EXPLOSION_FRAME_PATHS = [
+    "assets/images/mines/exp1.png",
+    "assets/images/mines/exp2.png",
+    "assets/images/mines/exp3.png",
+]
+EXPLOSION_FRAME_DURATION = 0.08         # seconds each frame stays up (3 frames = ~0.24s total)
+EXPLOSION_DISPLAY_SIZE = 70             # frames are scaled (down) to this many world pixels square
+
+# --- Player sprite animation (step 39) ---
+# Three hand-drawn walk-cycle frames (player1 = neutral/idle pose,
+# player2/player3 = the two stride extremes), replacing the plain
+# light-blue square the player used to be drawn as. These are JPEGs, so
+# they can't have a real transparent background -- each one instead has
+# a light gray/white checkerboard baked into its pixels where the
+# background should be. player.py detects and strips that checkerboard
+# out at load time (see _remove_checker_background), so nothing extra
+# needs to be done to these files by hand.
+PLAYER_FRAME_PATHS = [
+    "assets/images/person/player1.png",
+    "assets/images/person/player2.png",
+    "assets/images/person/player3.png",
+]
+PLAYER_FRAME_DURATION = 0.12            # seconds each walk frame stays up while moving
+PLAYER_SPRITE_HEIGHT = 46               # frames are scaled to this world-pixel height,
+                                          # width follows automatically to keep each
+                                          # frame's own proportions (they're not all
+                                          # exactly the same shape)
+PLAYER_CHECKER_BRIGHTNESS_THRESHOLD = 175   # grayscale pixels at least this bright are
+                                              # treated as checkerboard background, not
+                                              # character -- see player.py
+
+# --- Bullet sprite (step 43) ---
+# Same situation as the mine/player art -- bullet.png is fully opaque
+# (no real alpha channel), with a light gray/white checkerboard drawn
+# right into the background pixels instead of true transparency.
+# projectile.py strips that out at load time, then rotates its own copy
+# once per bullet to match that bullet's (fixed, never-changing) flight
+# direction -- the artwork's own default pose (nose pointing right,
+# trail behind it to the left) is treated as angle 0.
+PROJECTILE_IMAGE_PATH = "assets/images/bullet/bullet.png"
+PROJECTILE_SPRITE_LENGTH = 26            # scaled so the artwork's long axis is this many world pixels
+PROJECTILE_CHECKER_BRIGHTNESS_THRESHOLD = 175
+
+# --- Enemy hit flash (step 43) ---
+ENEMY_HIT_FLASH_COLOR = (255, 255, 255)
+ENEMY_HIT_FLASH_DURATION = 0.12          # seconds an enemy stays solid white after being shot
+
+# --- Bullet impact spark (step 44) ---
+# Three real frames (a small spark growing into a burst) replacing the
+# earlier procedural-glow stand-in from step 43 -- these are fully
+# opaque PNGs with a mid-gray two-tone checkerboard baked into the
+# background pixels instead of real alpha, same idea as the other art
+# assets, just a different (darker) pair of checker tones -- see
+# hit_effect.py's _remove_checker_background for why this one needs its
+# own two reference colors instead of the simple single-threshold check
+# player.py/mine.py/projectile.py use.
+HIT_EFFECT_FRAME_PATHS = [
+    "assets/images/effects/ef1.png",
+    "assets/images/effects/ef2.png",
+    "assets/images/effects/ef3.png",
+]
+HIT_EFFECT_FRAME_DURATION = 0.05          # 3 frames = ~0.15s total, same quick flash as before
+HIT_EFFECT_DISPLAY_SIZE = 28              # frames are scaled to this many world pixels square
+HIT_EFFECT_CHECKER_COLORS = [102, 139]    # the two checkerboard grays (as brightness values)
+HIT_EFFECT_CHECKER_TOLERANCE = 14
+
+# --- Enemy & guardian sprites (step 45) ---
+# Regular enemies get a slow 2-frame idle "wiggle" (enemy.png / enemy2.png,
+# two slightly different tentacle poses), always cycling regardless of
+# whether they're currently chasing -- there's no separate walk vs. idle
+# pose in this art. Guardians ("towers") are just tower.png normally,
+# switching briefly to tower2.png (a muzzle-flash pose) for
+# GUARDIAN_SHOOT_FLASH_DURATION right after they actually fire. All four
+# PNGs are fully opaque with the same light gray/white checkerboard
+# baked in as the player/mine/bullet art, so they reuse that same
+# single-threshold check (see enemy.py's _remove_checker_background).
+ENEMY_FRAME_PATHS = [
+    "assets/images/enemy/enemy.png",
+    "assets/images/enemy/enemy2.png",
+]
+ENEMY_FRAME_DURATION = 0.35
+ENEMY_SPRITE_SIZE = 32                    # world pixels square -- bigger than ENEMY_SIZE's
+                                            # hitbox so the art actually reads clearly
+GUARDIAN_IMAGE_PATH = "assets/images/enemy/tower.png"
+GUARDIAN_SHOOT_IMAGE_PATH = "assets/images/enemy/tower2.png"
+GUARDIAN_SHOOT_FLASH_DURATION = 0.15
+GUARDIAN_SPRITE_HEIGHT = 64                # scaled by height -- tower.png/tower2.png aren't
+                                             # the same aspect ratio (the muzzle-flash pose is
+                                             # taller), same approach as the player's frames
+ENEMY_SPRITE_CHECKER_BRIGHTNESS_THRESHOLD = 175

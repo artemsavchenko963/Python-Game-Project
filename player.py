@@ -9,6 +9,93 @@ import settings
 from weapon import Weapon
 
 
+# Step 39: the three walk-cycle frames, loaded and cleaned up ONCE and
+# shared by every Player -- there's only ever one player, but this also
+# means restarting (step 36's R key) doesn't reload/reprocess the same
+# three images from disk again.
+_frames = None
+_flash_frames = None
+
+
+def _remove_checker_background(surface):
+    """player1/2/3.jpg are plain JPEGs, which can't store real
+    transparency -- whatever tool exported them baked a light gray/white
+    checkerboard into the pixels where the background should be instead.
+    This walks every pixel and turns anything that's both (a) close to
+    gray (r, g and b all near each other) and (b) bright enough to be
+    checker rather than character (see settings.PLAYER_CHECKER_
+    BRIGHTNESS_THRESHOLD) fully transparent. The character art itself is
+    either very dark (the cloak) or has actual color in it (red eyes,
+    warm skin tones), so it never gets caught by this."""
+    surface = surface.convert_alpha()
+    width, height = surface.get_size()
+    surface.lock()
+    for x in range(width):
+        for y in range(height):
+            r, g, b, a = surface.get_at((x, y))
+            brightness = (r + g + b) / 3
+            is_grayish = abs(r - g) <= 8 and abs(g - b) <= 8 and abs(r - b) <= 8
+            if is_grayish and brightness >= settings.PLAYER_CHECKER_BRIGHTNESS_THRESHOLD:
+                surface.set_at((x, y), (r, g, b, 0))
+    surface.unlock()
+    return surface
+
+
+def _make_flash_frame(frame):
+    """A white silhouette of a frame (every visible pixel turned white,
+    same alpha shape) -- alternated with the normal frame while
+    invulnerable, for the same 'flashing' effect the plain color square
+    used to get from PLAYER_INVULNERABLE_COLOR."""
+    flash = frame.copy()
+    width, height = flash.get_size()
+    flash.lock()
+    for x in range(width):
+        for y in range(height):
+            r, g, b, a = flash.get_at((x, y))
+            if a > 0:
+                flash.set_at((x, y), (255, 255, 255, a))
+    flash.unlock()
+    return flash
+
+
+def _load_frame(path):
+    image = pygame.image.load(path)
+
+    # Step 41: PLAYER_FRAME_PATHS now points at real PNGs with a proper
+    # alpha channel (no baked-in checkerboard to strip) instead of the
+    # old JPEGs -- but _remove_checker_background is harmless to keep
+    # around for anyone who swaps a frame back to a plain JPEG later, so
+    # branch on the file extension rather than deleting it.
+    if path.lower().endswith((".jpg", ".jpeg")):
+        image = _remove_checker_background(image)
+    else:
+        image = image.convert_alpha()
+
+    # These new PNGs are big canvases with a lot of empty transparent
+    # space padded around the actual artwork (so the different poses
+    # don't all have to be the same canvas size) -- trim down to just
+    # the drawn pixels first, or scaling to PLAYER_SPRITE_HEIGHT would
+    # scale the whole mostly-empty canvas and the character would come
+    # out tiny. get_bounding_rect() finds that content box directly from
+    # the alpha channel.
+    bounding_rect = image.get_bounding_rect()
+    if bounding_rect.width > 0 and bounding_rect.height > 0:
+        image = image.subsurface(bounding_rect).copy()
+
+    width, height = image.get_size()
+    scale = settings.PLAYER_SPRITE_HEIGHT / height
+    new_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    return pygame.transform.smoothscale(image, new_size)
+
+
+def _get_frames():
+    global _frames, _flash_frames
+    if _frames is None:
+        _frames = [_load_frame(path) for path in settings.PLAYER_FRAME_PATHS]
+        _flash_frames = [_make_flash_frame(frame) for frame in _frames]
+    return _frames, _flash_frames
+
+
 class Player:
     def __init__(self, center):
         self.rect = pygame.Rect(0, 0, settings.PLAYER_SIZE, settings.PLAYER_SIZE)
@@ -44,6 +131,14 @@ class Player:
         # This is what stops standing inside an enemy from draining your
         # whole health bar in a single second.
         self.invulnerable_timer = 0.0
+
+        # Step 39: walk-cycle animation state. frame index 0 is the
+        # neutral/idle pose (player1.jpg) -- shown whenever the player
+        # isn't currently pressing a movement key. While moving, cycles
+        # through all three frames on a timer for a walking effect.
+        self.frames, self.flash_frames = _get_frames()
+        self.anim_frame_index = 0
+        self.anim_timer = 0.0
 
     def handle_movement(self, dt, keys, wall_rects):
         """Read WASD state and move, sliding along any wall_rects we bump into.
@@ -96,6 +191,20 @@ class Player:
                 elif dy < 0:
                     self.rect.top = wall_rect.bottom
                 self.pos.y = self.rect.y
+
+        # Step 39: advance the walk-cycle while a movement key is
+        # actually held, regardless of whether a wall stopped the rect
+        # from actually going anywhere -- looks better than freezing mid
+        # stride the instant you bump into something. Standing still
+        # always snaps back to the neutral frame 0.
+        if dx != 0 or dy != 0:
+            self.anim_timer -= dt
+            if self.anim_timer <= 0:
+                self.anim_timer += settings.PLAYER_FRAME_DURATION
+                self.anim_frame_index = (self.anim_frame_index + 1) % len(self.frames)
+        else:
+            self.anim_frame_index = 0
+            self.anim_timer = 0.0
 
     @property
     def equipped_weapon(self):
@@ -170,12 +279,18 @@ class Player:
         return self.health <= 0
 
     def draw(self, screen, camera_x, camera_y):
-        screen_rect = self.rect.move(-camera_x, -camera_y)
-        color = settings.PLAYER_INVULNERABLE_COLOR if self.invulnerable_timer > 0 else settings.PLAYER_COLOR
-        pygame.draw.rect(screen, color, screen_rect)
+        screen_center = (self.rect.centerx - camera_x, self.rect.centery - camera_y)
 
-        # A short line from the player's center toward the aim direction --
-        # a stand-in for "the gun" until we have real weapon sprites.
-        start = pygame.Vector2(screen_rect.center)
-        end = start + self.aim_dir * settings.AIM_INDICATOR_LENGTH
-        pygame.draw.line(screen, settings.AIM_INDICATOR_COLOR, start, end, 4)
+        # Step 39: blink between the normal frame and an all-white copy
+        # of it every 0.1s while invulnerable -- the same idea as the old
+        # solid-color flash, just done per-sprite instead of per-rect.
+        use_flash = self.invulnerable_timer > 0 and int(self.invulnerable_timer * 10) % 2 == 0
+        frames = self.flash_frames if use_flash else self.frames
+        image = frames[self.anim_frame_index]
+        image_rect = image.get_rect(center=screen_center)
+        screen.blit(image, image_rect)
+
+        # Step 42: the yellow aim-direction line (a stand-in "gun") is
+        # gone now that there's real player art -- it clashed with the
+        # sprite. aim_dir itself is untouched, still driving where shots
+        # actually fire; this only removes the visual line.
