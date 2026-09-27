@@ -165,7 +165,11 @@ class Room:
         base_spawns = []
         castle_rect = None
         for obj in self.tmx_data.objects:
-            if obj.type == "player":
+            # Step 46: a second map (arena.tmx) marks its own spawn point
+            # with Class "spawn" instead of "player" -- either name is
+            # read as the player's starting point, so the same Room
+            # class works for both maps without caring which one it is.
+            if obj.type in ("player", "spawn"):
                 player_spawn = (obj.x, obj.y)
             elif obj.type == "enemy":
                 base_spawns.append((obj.x, obj.y))

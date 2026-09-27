@@ -135,3 +135,62 @@ def run_instructions(screen, clock):
 
         pygame.display.flip()
         clock.tick(settings.FPS)
+
+
+def run_arena_backstory(screen, clock):
+    """Step 48: a black backstory screen shown once, after the player
+    presses E on the "Press E: Boss Fight" prompt and before main.py
+    actually switches the map over to arena.tmx. Identical
+    blocks-until-any-key/click pattern as run_instructions above, just
+    with its own title/lines/hint text (settings.ARENA_BACKSTORY_*) so
+    tweaking one screen's wording/timing never touches the other's.
+    Returns True once dismissed, or False if the window was closed
+    instead -- main() treats that the same as closing the window
+    anywhere else mid-game (stop running)."""
+    title_font = pygame.font.SysFont(None, settings.ARENA_BACKSTORY_TITLE_FONT_SIZE)
+    line_font = pygame.font.SysFont(None, settings.ARENA_BACKSTORY_LINE_FONT_SIZE)
+    hint_font = pygame.font.SysFont(None, settings.ARENA_BACKSTORY_HINT_FONT_SIZE)
+
+    title_surface = title_font.render(
+        settings.ARENA_BACKSTORY_TITLE_TEXT, True, settings.ARENA_BACKSTORY_TITLE_COLOR
+    )
+
+    line_surfaces = [
+        line_font.render(line, True, settings.ARENA_BACKSTORY_LINE_COLOR) if line else None
+        for line in settings.ARENA_BACKSTORY_LINES
+    ]
+    line_height = line_font.get_height()
+
+    hint_surface = hint_font.render(
+        settings.ARENA_BACKSTORY_HINT_TEXT, True, settings.ARENA_BACKSTORY_HINT_COLOR
+    )
+
+    center_x = screen.get_width() // 2
+    total_lines_height = len(line_surfaces) * line_height + (len(line_surfaces) - 1) * settings.ARENA_BACKSTORY_LINE_GAP
+    lines_start_y = screen.get_height() // 2 - total_lines_height // 2
+    title_rect = title_surface.get_rect(center=(center_x, lines_start_y - 80))
+    hint_rect = hint_surface.get_rect(
+        center=(center_x, screen.get_height() - settings.ARENA_BACKSTORY_HINT_MARGIN)
+    )
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                return True
+
+        screen.fill(settings.MENU_BG_COLOR)
+        screen.blit(title_surface, title_rect)
+
+        y = lines_start_y
+        for line_surface in line_surfaces:
+            if line_surface is not None:
+                line_rect = line_surface.get_rect(center=(center_x, y + line_height // 2))
+                screen.blit(line_surface, line_rect)
+            y += line_height + settings.ARENA_BACKSTORY_LINE_GAP
+
+        screen.blit(hint_surface, hint_rect)
+
+        pygame.display.flip()
+        clock.tick(settings.FPS)

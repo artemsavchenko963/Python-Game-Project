@@ -175,6 +175,7 @@ from pickup import WeaponPickup
 from mine import Mine
 from explosion import Explosion
 from hit_effect import HitEffect
+from boss import Boss
 import menu
 import hud
 
@@ -453,6 +454,13 @@ def main():
     view_height = int(settings.SCREEN_HEIGHT / settings.ZOOM)
     game_surface = pygame.Surface((view_width, view_height))
 
+    # Step 49: remembered so a restart (R key, from either game_over or
+    # the arena) can put view_width/height/game_surface back to these
+    # exact castle-map values -- entering the arena below reassigns all
+    # three to a bigger, arena-only zoom, and nothing else ever restores
+    # them otherwise.
+    castle_view_width, castle_view_height = view_width, view_height
+
     # Step 34: built once here, not per-frame -- see _build_fog_surface's
     # own docstring for why. fog_radius is how far the fog surface's own
     # center sits from ITS top-left corner, needed every frame to offset
@@ -464,12 +472,23 @@ def main():
     hit_effects = []  # step 43: one per bullet that actually hit something
     game_over = False
     won = False  # step 32: True once every base has been cleared
+    in_arena = False  # step 46: True once the castle's cleared and the player's moved to arena.tmx
     paused = False
     scanner_cooldown = 0.0  # step 35: seconds left before E can scan again
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
     running = True
     while running:
+        # Step 47: computed before the event loop (not just inside the
+        # update section below) because the E-key handler needs to know
+        # "are all bases down" too, to decide whether E means "enter the
+        # boss fight" instead of its usual "scan for mines" -- see the
+        # K_e branch just below.
+        bases_cleared = bases and all(
+            base["guardian"].health <= 0 and all(m.health <= 0 for m in base["minions"])
+            for base in bases
+        )
+
         # 1. Handle input/events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -482,7 +501,14 @@ def main():
                 hit_effects = []
                 game_over = False
                 won = False
+                in_arena = False
                 scanner_cooldown = 0.0
+                # Step 49: undo the arena-only zoom-in (if the run that
+                # just ended had gotten that far) -- restarting always
+                # puts you back on the castle map, which needs its own,
+                # normal view size back.
+                view_width, view_height = castle_view_width, castle_view_height
+                game_surface = pygame.Surface((view_width, view_height))
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if not paused and hud.get_pause_button_rect(screen).collidepoint(event.pos):
                     paused = True
@@ -493,12 +519,89 @@ def main():
                 and not game_over and not won and not paused
                 and event.key == pygame.K_e
             ):
-                # Step 35: a scan pulse -- only does anything once the
-                # cooldown has actually reached 0. Any mine currently
-                # within SCANNER_RADIUS of the player gets revealed for
-                # SCANNER_REVEAL_DURATION seconds; mines farther away are
-                # untouched (they'll need a closer scan of their own).
-                if scanner_cooldown <= 0:
+                if bases_cleared and not in_arena:
+                    # Step 47: this used to happen automatically the
+                    # instant the last base fell. Now it waits for the
+                    # player to actually press E (the on-screen "Press E:
+                    # Boss Fight" prompt is what tells them this is
+                    # possible -- see hud.draw_boss_fight_prompt in the
+                    # draw section below), so they can finish looting/
+                    # exploring the castle first instead of being yanked
+                    # into the arena the moment the fight ends.
+                    #
+                    # Step 48: a black backstory screen shown first --
+                    # blocks right here (its own tiny event loop, same as
+                    # menu.run/run_instructions at startup) until the
+                    # player presses a key or clicks. Closing the window
+                    # during it quits immediately instead of continuing
+                    # into the arena.
+                    if not menu.run_arena_backstory(screen, clock):
+                        running = False
+                    else:
+                        room = Room(settings.ARENA_MAP_PATH)
+                        if room.player_spawn is not None:
+                            player.rect.center = room.player_spawn
+                            player.pos = pygame.Vector2(player.rect.topleft)
+                        mines = []
+                        projectiles = []
+                        enemy_projectiles = []
+                        explosions = []
+                        hit_effects = []
+                        in_arena = True
+
+                        # Step 49: the arena (1264x1264 world pixels) is
+                        # much smaller than the castle map -- at the
+                        # normal ZOOM, a big enough monitor's usual view
+                        # is wider and/or taller than the whole arena, so
+                        # the camera clamp below always leaves a strip of
+                        # "off the edge of the map" background showing on
+                        # one side no matter where the player stands (see
+                        # settings.ARENA_ZOOM_SAFETY_MARGIN's comment).
+                        # Zoom in just far enough, here and only here,
+                        # that the view can never exceed the arena's own
+                        # size in either dimension, and rebuild
+                        # game_surface at that new (smaller) size --
+                        # everything downstream (camera math, drawing,
+                        # the final scale-up to the real window) already
+                        # just reads whatever view_width/view_height and
+                        # game_surface currently are.
+                        fit_zoom_x = settings.SCREEN_WIDTH / room.rect.width
+                        fit_zoom_y = settings.SCREEN_HEIGHT / room.rect.height
+                        arena_zoom = max(
+                            settings.ZOOM,
+                            max(fit_zoom_x, fit_zoom_y) * settings.ARENA_ZOOM_SAFETY_MARGIN,
+                        )
+                        view_width = max(1, int(settings.SCREEN_WIDTH / arena_zoom))
+                        view_height = max(1, int(settings.SCREEN_HEIGHT / arena_zoom))
+                        game_surface = pygame.Surface((view_width, view_height))
+
+                        # Step 50: the boss itself -- spawned a fixed
+                        # distance above wherever the arena's own spawn
+                        # point put the player (arena.tmx has no
+                        # dedicated "boss spawn" object of its own).
+                        # Added straight into room.enemies rather than
+                        # tracked separately -- Boss implements the same
+                        # rect/touch_damage/take_damage/update/draw
+                        # interface Enemy does, so every loop below that
+                        # already knows how to chase-collide/take a
+                        # projectile hit/draw "an enemy" just works on it
+                        # unchanged. See the "in_arena and not
+                        # room.enemies" check further down for how its
+                        # death is what finally triggers victory.
+                        if room.player_spawn is not None:
+                            boss_spawn = (
+                                room.player_spawn[0],
+                                max(0, room.player_spawn[1] - settings.BOSS_SPAWN_OFFSET),
+                            )
+                        else:
+                            boss_spawn = room.rect.center
+                        room.enemies.append(Boss(center=boss_spawn, difficulty=difficulty))
+                elif scanner_cooldown <= 0:
+                    # Step 35: a scan pulse -- only does anything once the
+                    # cooldown has actually reached 0. Any mine currently
+                    # within SCANNER_RADIUS of the player gets revealed for
+                    # SCANNER_REVEAL_DURATION seconds; mines farther away are
+                    # untouched (they'll need a closer scan of their own).
                     for mine in mines:
                         distance = math.hypot(
                             mine.rect.centerx - player.rect.centerx,
@@ -538,8 +641,17 @@ def main():
         # makes the world freeze in place instead of continuing to move
         # behind whichever overlay is showing.
         if not game_over and not won and not paused:
+            # Step 46/47: clearing every base in the castle used to show
+            # victory right away, then (step 46) teleported into arena.tmx
+            # automatically. Now (step 47) the teleport itself only
+            # happens when the player actually presses E -- see the K_e
+            # handler up in the event loop -- `bases_cleared` up there is
+            # what the on-screen prompt below is keyed off of too. Victory
+            # itself is still deferred to some later condition IN the
+            # arena (not decided yet), so `won` is never set here.
+
             keys = pygame.key.get_pressed()
-            player.handle_movement(dt, keys, room.wall_rects)
+            player.handle_movement(dt, keys, room.wall_rects, room.rect)
             player.handle_weapon_switch(keys)
 
             # Step 35: cooldown ticks down regardless of whether a scan
@@ -607,7 +719,7 @@ def main():
             camera_x = max(0, min(camera_x, room.rect.width - view_width))
             camera_y = max(0, min(camera_y, room.rect.height - view_height))
 
-            player.handle_aim(camera_x, camera_y)
+            player.handle_aim(camera_x, camera_y, view_width, view_height)
 
             # Fire while LMB is held, at most once every
             # equipped_weapon.fire_interval seconds.
@@ -672,6 +784,14 @@ def main():
                 if hit_wall or left_map:
                     enemy_projectiles.remove(enemy_projectile)
 
+            # Step 50: the boss is the only thing ever in room.enemies
+            # while in_arena -- once the projectile-hit loop above has
+            # killed it (and removed it from room.enemies, same as any
+            # other enemy), the arena is empty and that's what finally
+            # answers "what wins the game" left open since step 46.
+            if in_arena and not room.enemies:
+                won = True
+
         # 3. Draw everything -- always runs, game over or not, so the
         # frozen world stays visible underneath the game-over overlay.
         # Everything draws onto game_surface (the smaller, zoomed-in
@@ -707,9 +827,15 @@ def main():
         # readable, never dimmed by the fog. Positioned so the fog
         # surface's own center (fog_radius, fog_radius) lands exactly on
         # the player's on-screen position, wherever that currently is.
-        player_screen_x = player.rect.centerx - camera_x
-        player_screen_y = player.rect.centery - camera_y
-        game_surface.blit(fog_surface, (player_screen_x - fog_radius, player_screen_y - fog_radius))
+        #
+        # Step 47: skipped entirely once in_arena -- the boss arena is
+        # meant to be fully visible (it's a single contained fight, not
+        # something to explore in the dark), so the whole screen just
+        # stays lit there instead of only a circle around the player.
+        if not in_arena:
+            player_screen_x = player.rect.centerx - camera_x
+            player_screen_y = player.rect.centery - camera_y
+            game_surface.blit(fog_surface, (player_screen_x - fog_radius, player_screen_y - fog_radius))
 
         hud.draw_health_bar(game_surface, player)
         hud.draw_weapon_label(game_surface, player)
@@ -724,13 +850,16 @@ def main():
         hud.draw_bases_label(game_surface, bases_remaining, len(bases))
         hud.draw_scanner_label(game_surface, scanner_cooldown)
 
-        # Step 32: clearing every base wins -- but only if there WERE
-        # bases to clear in the first place (an empty map, `bases == []`,
-        # shouldn't instantly count as a win). Guarded by `not game_over`
-        # too, so dying on the very last hit that also clears the final
-        # base shows the death screen, not victory.
-        if bases and bases_remaining == 0 and not game_over:
-            won = True
+        # Step 46: clearing every base no longer sets `won` here -- see
+        # the in_arena check up in the update section. bases_remaining
+        # is still tracked/shown above purely for the HUD label.
+
+        # Step 47: the "Press E: Boss Fight" banner -- only makes sense to
+        # show once (every base is down, haven't already gone through)
+        # and while there's still a normal game to look at (not already
+        # showing the death/victory/pause overlay).
+        if bases_cleared and not in_arena and not game_over and not won and not paused:
+            hud.draw_boss_fight_prompt(game_surface)
 
         if game_over:
             hud.draw_game_over(game_surface)

@@ -115,6 +115,37 @@ PICKUP_BORDER_COLOR = (20, 60, 40)
 # .tmx references it by a relative path too.
 MAP_PATH = "maptailed.tmx"
 
+# --- Arena (second map, step 46) ---
+# Clearing every base in the castle map moves the player onto this
+# second, separate map instead of showing victory right away -- same
+# folder-relative-path rule as MAP_PATH above. Its own spawn point uses
+# Class "spawn" rather than "player" in Tiled -- see room.py's
+# _read_spawn_points, which reads either name.
+ARENA_MAP_PATH = "arena.tmx"
+
+# --- Arena camera zoom (step 49) ---
+# The arena map is much smaller (1264x1264 world pixels) than the castle
+# map -- on a big enough monitor, the normal camera view (SCREEN_WIDTH/
+# HEIGHT divided by the regular ZOOM above) is actually WIDER and/or
+# TALLER than the whole arena, so no matter where the camera clamps to,
+# there's a strip of "past the edge of the map" background showing on
+# one side. main.py handles this by computing a bigger, arena-only zoom
+# at the moment it builds the arena (from the real screen size and the
+# arena's own room.rect), just large enough that the camera's view never
+# exceeds the map in either dimension. This margin is multiplied on top
+# of that "just barely fits" zoom so the fit isn't pixel-perfect exact
+# (which would leave zero room for the camera to move at all, and risks
+# a 1px seam from int() rounding) -- 1.05 means "5% more zoomed in than
+# the bare minimum."
+ARENA_ZOOM_SAFETY_MARGIN = 1.05
+
+# Step 50: the arena map has no dedicated "boss spawn" object in Tiled --
+# main.py just spawns the boss this many world pixels straight above
+# wherever the arena's own player spawn point is, which keeps it a
+# short, deliberate walk from where the player lands instead of right
+# on top of them.
+BOSS_SPAWN_OFFSET = 300
+
 # --- Camera zoom (step 22, lowered step 33) ---
 # The actual window stays SCREEN_WIDTH x SCREEN_HEIGHT, but the world is
 # drawn onto a SMALLER surface internally, then stretched up to fill the
@@ -262,11 +293,25 @@ SCANNER_LABEL_FONT_SIZE = 22          # HUD text showing scan cooldown status
 # this touches your existing bases/guardians system (the "enemy" points
 # you place in Tiled) -- that still works exactly as it always has,
 # completely unaffected by difficulty. Order here is display order too.
+# Step 50: four more keys per difficulty -- boss_health/boss_damage/
+# boss_speed/boss_attack_interval -- read by boss.py's Boss class the
+# exact same way Enemy already reads mines/castle_enemies/map_enemies:
+# whatever difficulty the player picked at the menu is what the boss in
+# the arena scales with too, not a separate/hardcoded set of numbers.
+# boss_damage covers BOTH touch damage and each projectile hit (see
+# Boss.touch_damage/_shoot) -- one number, two places it's used, same as
+# a guardian's own damage isn't literally two different constants
+# either. boss_attack_interval is seconds between shots -- LOWER means
+# it attacks MORE often ("faster").
 DIFFICULTIES = {
-    "Easy":       {"mines": 130, "castle_enemies": 10, "map_enemies": 0},
-    "Mid":        {"mines": 240, "castle_enemies": 20, "map_enemies": 0},
-    "Hard":       {"mines": 400, "castle_enemies": 30, "map_enemies": 0},
-    "Impossible": {"mines": 600, "castle_enemies": 30, "map_enemies": 60},
+    "Easy":       {"mines": 130, "castle_enemies": 10, "map_enemies": 0,
+                    "boss_health": 600,  "boss_damage": 20, "boss_speed": 45, "boss_attack_interval": 1.0},
+    "Mid":        {"mines": 240, "castle_enemies": 20, "map_enemies": 0,
+                    "boss_health": 900,  "boss_damage": 28, "boss_speed": 50, "boss_attack_interval": 0.85},
+    "Hard":       {"mines": 400, "castle_enemies": 30, "map_enemies": 0,
+                    "boss_health": 1300, "boss_damage": 38, "boss_speed": 55, "boss_attack_interval": 0.7},
+    "Impossible": {"mines": 600, "castle_enemies": 30, "map_enemies": 60,
+                    "boss_health": 1800, "boss_damage": 50, "boss_speed": 60, "boss_attack_interval": 0.55},
 }
 
 MENU_BG_COLOR = (0, 0, 0)
@@ -409,3 +454,87 @@ GUARDIAN_SPRITE_HEIGHT = 64                # scaled by height -- tower.png/tower
                                              # the same aspect ratio (the muzzle-flash pose is
                                              # taller), same approach as the player's frames
 ENEMY_SPRITE_CHECKER_BRIGHTNESS_THRESHOLD = 175
+
+# --- Boss fight prompt (step 47) ---
+# Clearing every base no longer teleports you into arena.tmx
+# automatically -- instead a banner shows up telling you to press E when
+# you're ready, and the actual map switch only happens on that keypress
+# (main.py). Reuses the E key -- when there's nothing left to scan for,
+# pressing E can't mean "scan" anymore anyway, so there's no real
+# conflict with the mine scanner.
+BOSS_FIGHT_PROMPT_TEXT = "Press E: Boss Fight"
+BOSS_FIGHT_PROMPT_FONT_SIZE = 40
+BOSS_FIGHT_PROMPT_TEXT_COLOR = (230, 230, 230)
+BOSS_FIGHT_PROMPT_BG_COLOR = (40, 10, 10)
+BOSS_FIGHT_PROMPT_BG_ALPHA = 190
+BOSS_FIGHT_PROMPT_PADDING = 16          # space between the text and the box edge on every side
+BOSS_FIGHT_PROMPT_TOP_MARGIN = 40       # distance from the top of the screen
+
+# --- Arena backstory screen (step 48) ---
+# Shown once, right after pressing E on the "Press E: Boss Fight" prompt
+# and before the map actually switches to arena.tmx -- same black,
+# blocks-until-a-key/click pattern as menu.run_instructions (menu.py's
+# run_arena_backstory), just with its own title/lines/hint so the two
+# screens can be tuned independently.
+ARENA_BACKSTORY_TITLE_TEXT = "THE RIFT OPENS"
+ARENA_BACKSTORY_LINES = [
+    "With the last base silenced, the castle floor splits open beneath",
+    "the throne room -- whatever ruled this place was never IN these walls.",
+    "",
+    "It waited below, coiled in a scorched, blood-red arena, for someone",
+    "strong enough to actually reach it.",
+    "",
+    "There are no mines past this point. No shadows left to hide in.",
+    "Just you, and whatever is still alive down there.",
+    "",
+    "Once you step through, it doesn't end until one of you does.",
+]
+ARENA_BACKSTORY_TITLE_FONT_SIZE = 56
+ARENA_BACKSTORY_TITLE_COLOR = (200, 40, 40)
+ARENA_BACKSTORY_LINE_FONT_SIZE = 28
+ARENA_BACKSTORY_LINE_COLOR = (210, 210, 210)
+ARENA_BACKSTORY_LINE_GAP = 12
+ARENA_BACKSTORY_HINT_TEXT = "Press any key or click to enter the arena"
+ARENA_BACKSTORY_HINT_FONT_SIZE = 24
+ARENA_BACKSTORY_HINT_COLOR = (150, 150, 150)
+ARENA_BACKSTORY_HINT_MARGIN = 60        # distance from the bottom of the screen
+
+# --- Boss (step 50) ---
+# The single enemy waiting in the arena, spawned once (boss.py's Boss
+# class) right after the arena backstory screen is dismissed. Four hand-
+# drawn idle frames, same "opaque PNG with a checkerboard baked in
+# instead of real transparency" situation as the player/enemy/tower art
+# (see boss.py's own copy of _remove_checker_background).
+BOSS_FRAME_PATHS = [
+    "assets/images/boss/boss1.1.png",
+    "assets/images/boss/boss1.2.png",
+    "assets/images/boss/boss1.3.png",
+    "assets/images/boss/boss1.4.png",
+]
+BOSS_FRAME_DURATION = 0.18
+BOSS_CHECKER_BRIGHTNESS_THRESHOLD = 175
+
+# Kept modest on purpose -- the source art is a big, detailed portrait
+# full of long trailing tentacles, but scaling it up to look "properly
+# huge" in-game made it overwhelm the screen. GUARDIAN_SPRITE_HEIGHT
+# (64) is the previous biggest thing in the game; the boss is only a
+# bit taller than that, not several times bigger.
+BOSS_SPRITE_HEIGHT = 90                 # world pixels, scaled by height (step 45's approach)
+BOSS_SIZE = 42                          # the actual hitbox -- smaller than the sprite, same
+                                          # "art is bigger than what actually collides" idea as
+                                          # ENEMY_SIZE/GUARDIAN_SIZE vs their own sprite sizes
+
+BOSS_SHOOT_RANGE = 500                  # always chases (no AGGRO_RADIUS gate) but only
+                                          # fires once the player's within this range
+BOSS_PROJECTILE_SPEED = 380
+
+# Step 50: once health drops to (or below) this fraction of max_health,
+# the boss enrages -- a ONE-WAY switch, checked in Boss.take_damage,
+# that never turns back off for the rest of the fight.
+BOSS_RAGE_HEALTH_FRACTION = 0.2          # 20% hp
+BOSS_RAGE_SIZE_MULTIPLIER = 1.3          # both the sprite AND the hitbox grow by this much
+BOSS_RAGE_SPEED_MULTIPLIER = 1.4
+BOSS_RAGE_DAMAGE_MULTIPLIER = 1.5        # applies to touch damage AND each projectile hit
+BOSS_RAGE_ATTACK_INTERVAL_MULTIPLIER = 0.65  # LOWER = fires more often once enraged
+BOSS_RAGE_TINT_COLOR = (255, 40, 40)     # enraged frames are blended toward this color...
+BOSS_RAGE_TINT_BLEND = 0.55              # ...by this much (0 = no change, 1 = solid tint color)

@@ -79,6 +79,29 @@ def draw_scanner_label(screen, scanner_cooldown):
     screen.blit(surface, (x, y))
 
 
+def draw_boss_fight_prompt(screen):
+    """Step 47: shown once every base is cleared, instead of teleporting
+    into the arena map right away -- lets the player finish looting/
+    exploring the castle first and walk into the boss fight on their own
+    terms by pressing E. A dark box behind the text keeps it readable
+    over any part of the map/fog it happens to sit on top of."""
+    font = pygame.font.SysFont(None, settings.BOSS_FIGHT_PROMPT_FONT_SIZE)
+    text_surface = font.render(settings.BOSS_FIGHT_PROMPT_TEXT, True, settings.BOSS_FIGHT_PROMPT_TEXT_COLOR)
+
+    padding = settings.BOSS_FIGHT_PROMPT_PADDING
+    box_width = text_surface.get_width() + padding * 2
+    box_height = text_surface.get_height() + padding * 2
+    box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    box.fill((*settings.BOSS_FIGHT_PROMPT_BG_COLOR, settings.BOSS_FIGHT_PROMPT_BG_ALPHA))
+
+    box_rect = box.get_rect(midtop=(screen.get_width() // 2, settings.BOSS_FIGHT_PROMPT_TOP_MARGIN))
+    screen.blit(box, box_rect)
+    pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, box_rect, 2)
+
+    text_rect = text_surface.get_rect(center=box_rect.center)
+    screen.blit(text_surface, text_rect)
+
+
 def draw_game_over(screen):
     """A dark overlay plus centered title/hint text. Fonts are created here
     each call rather than cached -- this screen isn't drawn every frame

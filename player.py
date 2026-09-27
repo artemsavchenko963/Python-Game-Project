@@ -140,7 +140,7 @@ class Player:
         self.anim_frame_index = 0
         self.anim_timer = 0.0
 
-    def handle_movement(self, dt, keys, wall_rects):
+    def handle_movement(self, dt, keys, wall_rects, map_rect=None):
         """Read WASD state and move, sliding along any wall_rects we bump into.
 
         Movement is accumulated into self.pos (a float Vector2), NOT
@@ -192,6 +192,18 @@ class Player:
                     self.rect.top = wall_rect.bottom
                 self.pos.y = self.rect.y
 
+        # Step 47: clamp to the map's own bounds, same idea as the camera
+        # clamp in main.py -- without this, walking off any edge of the
+        # map that isn't lined with solid-tagged wall tiles (arena.tmx has
+        # none) just kept going forever into the void past the rendered
+        # background. map_rect is optional (None skips this) only so old
+        # callers/tests that don't pass one don't crash -- every real
+        # caller in main.py always passes room.rect.
+        if map_rect is not None:
+            self.rect.clamp_ip(map_rect)
+            self.pos.x = self.rect.x
+            self.pos.y = self.rect.y
+
         # Step 39: advance the walk-cycle while a movement key is
         # actually held, regardless of whether a wall stopped the rect
         # from actually going anywhere -- looks better than freezing mid
@@ -230,19 +242,30 @@ class Player:
         self.weapons.append(weapon)
         self.weapon_index = len(self.weapons) - 1
 
-    def handle_aim(self, camera_x, camera_y):
+    def handle_aim(self, camera_x, camera_y, view_width, view_height):
         """Point aim_dir from the player's on-screen position toward the mouse."""
         screen_x = self.rect.centerx - camera_x
         screen_y = self.rect.centery - camera_y
 
         # pygame.mouse.get_pos() reports real window pixels, but step 22
-        # draws the world onto a smaller internal surface (ZOOM times
-        # smaller) before stretching it up to fill the window -- so the
-        # mouse position has to be scaled down by the same factor to land
-        # in the same coordinate space as screen_x/screen_y above.
+        # draws the world onto a smaller internal surface (game_surface,
+        # view_width x view_height) before stretching it up to fill the
+        # window -- so the mouse position has to be scaled down by
+        # whatever that stretch factor actually is right now, to land in
+        # the same coordinate space as screen_x/screen_y above.
+        #
+        # Step 51: this used to just divide by settings.ZOOM, which is
+        # only true on the castle map -- the arena zooms in FURTHER, to a
+        # bigger, runtime-computed factor (see main.py's arena-only zoom,
+        # step 49), so dividing by the smaller fixed ZOOM constant there
+        # was converting the cursor to the wrong point and aiming off
+        # target. Computing the real current factor from the actual
+        # screen size vs. view_width/view_height (both passed in by
+        # main.py, whichever map is active) instead always matches
+        # whatever's really on screen.
         mouse_x, mouse_y = pygame.mouse.get_pos()
-        mouse_x /= settings.ZOOM
-        mouse_y /= settings.ZOOM
+        mouse_x /= settings.SCREEN_WIDTH / view_width
+        mouse_y /= settings.SCREEN_HEIGHT / view_height
 
         direction = pygame.Vector2(mouse_x - screen_x, mouse_y - screen_y)
         # Guard against the zero-length vector you'd get if the mouse were
