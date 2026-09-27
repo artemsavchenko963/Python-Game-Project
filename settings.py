@@ -84,6 +84,21 @@ HEALTH_BAR_BG_COLOR = (50, 20, 20)      # "empty" portion
 HEALTH_BAR_FILL_COLOR = (200, 40, 40)   # "remaining health" portion
 HEALTH_BAR_BORDER_COLOR = (10, 10, 10)
 HEALTH_BAR_BORDER_WIDTH = 2
+HEALTH_BAR_BORDER_RADIUS = 6            # step 54: rounded corners, matches the newer HUD look
+
+# --- HUD panel (step 54) ---
+# A single rounded, red-tinted backdrop drawn BEHIND the whole left-side
+# stack (health bar, weapon label, bases label, scanner label) -- before
+# this they were just plain text floating directly over the game world,
+# which is what read as "looks bad." hud.py's draw_hud_panel draws this
+# first; every other element in the stack keeps its own existing x/y
+# math completely unchanged and just ends up sitting on top of it.
+HUD_PANEL_WIDTH = 320
+HUD_PANEL_PADDING = 14
+HUD_PANEL_ROW_GAP = 8
+HUD_PANEL_BG_COLOR = (20, 8, 10, 205)
+HUD_PANEL_BORDER_COLOR = (130, 45, 45)
+HUD_PANEL_BORDER_RADIUS = 14
 
 # --- Game over (step 18) ---
 GAME_OVER_OVERLAY_ALPHA = 180        # 0 = invisible, 255 = fully opaque black overlay
@@ -103,6 +118,35 @@ SMG_FIRE_INTERVAL = 0.08             # ...but fires far more often (12.5 shots/s
 SMG_PROJECTILE_SPEED = 650
 
 WEAPON_LABEL_FONT_SIZE = 22           # HUD text showing which weapon is equipped
+
+# --- Souls (step 52, redesigned step 53) ---
+# The shop's currency -- earned by killing enemies (see the "Shop" block
+# near the bottom of this file for the actual shop). Shown as its own
+# rounded badge top-center of the screen (hud.py's draw_souls_badge),
+# not stuffed into the left-side health/weapon/bases stack -- it reads
+# more like a persistent currency counter that way, similar to how
+# lives/coins sit top-center in a lot of arcade HUDs.
+SOULS_PER_ENEMY = 35                  # a regular enemy or castle/map-scattered extra (or a
+                                         # boss-fight minion -- see boss.py's reinforcements)
+SOULS_PER_GUARDIAN = 100              # a base's guardian ("tower")
+
+SOULS_BADGE_WIDTH = 150                # fixed width (not measured from the text) so the
+                                         # badge never subtly resizes/jitters as the number changes
+SOULS_BADGE_HEIGHT = 44
+SOULS_BADGE_TOP_MARGIN = 20            # distance from the top of the screen
+# Step 54: recolored from the original indigo/blue to a deep blood-red --
+# matches the game's existing red/black look better than "arcane purple" did.
+SOULS_BADGE_BG_COLOR = (32, 10, 12, 222)     # RGBA, deep blood-red
+SOULS_BADGE_BORDER_COLOR = (205, 60, 55)
+SOULS_BADGE_FONT_SIZE = 26
+SOULS_BADGE_TEXT_COLOR = (255, 228, 222)
+
+# The little glowing "soul" icon drawn to the left of the number --
+# hud.py's _draw_soul_orb (a solid core plus a soft halo), not an emoji
+# or an image file, so it always renders crisply at any size.
+SOULS_ICON_RADIUS = 9
+SOULS_ICON_COLOR = (215, 35, 35)             # step 54: red, was pale blue
+SOULS_ICON_CORE_COLOR = (255, 205, 195)
 
 # --- Weapon pickups (step 20) ---
 PICKUP_SIZE = 10
@@ -468,7 +512,8 @@ BOSS_FIGHT_PROMPT_TEXT_COLOR = (230, 230, 230)
 BOSS_FIGHT_PROMPT_BG_COLOR = (40, 10, 10)
 BOSS_FIGHT_PROMPT_BG_ALPHA = 190
 BOSS_FIGHT_PROMPT_PADDING = 16          # space between the text and the box edge on every side
-BOSS_FIGHT_PROMPT_TOP_MARGIN = 40       # distance from the top of the screen
+BOSS_FIGHT_PROMPT_TOP_MARGIN = 78       # distance from the top of the screen -- below the
+                                          # souls badge (step 53), which also sits top-center
 
 # --- Arena backstory screen (step 48) ---
 # Shown once, right after pressing E on the "Press E: Boss Fight" prompt
@@ -530,11 +575,124 @@ BOSS_PROJECTILE_SPEED = 380
 
 # Step 50: once health drops to (or below) this fraction of max_health,
 # the boss enrages -- a ONE-WAY switch, checked in Boss.take_damage,
-# that never turns back off for the rest of the fight.
-BOSS_RAGE_HEALTH_FRACTION = 0.2          # 20% hp
+# that never turns back off for the rest of the fight. Raised from 0.2
+# to 0.5 (step 54) -- the boss now enrages (bigger, faster, more
+# damage, fires more often, red tint) at 50% hp instead of 20%.
+BOSS_RAGE_HEALTH_FRACTION = 0.5           # 50% hp
 BOSS_RAGE_SIZE_MULTIPLIER = 1.3          # both the sprite AND the hitbox grow by this much
 BOSS_RAGE_SPEED_MULTIPLIER = 1.4
 BOSS_RAGE_DAMAGE_MULTIPLIER = 1.5        # applies to touch damage AND each projectile hit
 BOSS_RAGE_ATTACK_INTERVAL_MULTIPLIER = 0.65  # LOWER = fires more often once enraged
 BOSS_RAGE_TINT_COLOR = (255, 40, 40)     # enraged frames are blended toward this color...
 BOSS_RAGE_TINT_BLEND = 0.55              # ...by this much (0 = no change, 1 = solid tint color)
+
+# --- Boss health bar (step 54) ---
+# A boss-fight-style bar, top-center, shown only while in_arena -- drawn
+# on the real screen (like the souls badge/shop panel) so it stays a
+# fixed, crisp size regardless of the arena's own zoom. Sits just below
+# the souls badge (which ends at 20 + 44 = 64), with a small gap.
+BOSS_HEALTH_BAR_WIDTH = 480
+BOSS_HEALTH_BAR_HEIGHT = 26
+BOSS_HEALTH_BAR_TOP_MARGIN = 74
+BOSS_HEALTH_BAR_BG_COLOR = (35, 10, 10, 220)
+BOSS_HEALTH_BAR_FILL_COLOR = (200, 30, 30)
+BOSS_HEALTH_BAR_ENRAGED_FILL_COLOR = (255, 110, 30)   # step 54: orange once enraged, easy to spot
+BOSS_HEALTH_BAR_BORDER_COLOR = (140, 45, 45)
+BOSS_HEALTH_BAR_BORDER_WIDTH = 2
+BOSS_HEALTH_BAR_BORDER_RADIUS = 8
+BOSS_HEALTH_BAR_LABEL_TEXT = "BOSS"
+BOSS_HEALTH_BAR_LABEL_FONT_SIZE = 20
+BOSS_HEALTH_BAR_LABEL_COLOR = (255, 220, 215)
+BOSS_HEALTH_BAR_RAGE_LABEL_TEXT = "ENRAGED"
+BOSS_HEALTH_BAR_RAGE_LABEL_COLOR = (255, 130, 60)
+
+# --- Boss minion reinforcements (step 54) ---
+# Every so often during the boss fight, a handful of regular enemies
+# (the same kind that spawn early in the castle) appear in a ring around
+# the boss -- keeps the fight from being a pure 1v1 stare-down. Interval
+# shortens once enraged, same "the fight gets worse" idea as the rest of
+# the rage bundle.
+BOSS_MINION_SPAWN_INTERVAL = 7.0
+BOSS_MINION_SPAWN_INTERVAL_ENRAGED = 4.0
+BOSS_MINION_SPAWN_COUNT = 5
+BOSS_MINION_SPAWN_RADIUS = 140
+
+# --- Shop (step 52, redesigned step 53) ---
+# A panel that pops up in the bottom-right corner of the screen the
+# moment every castle base is cleared -- the same "bases_cleared"
+# condition the "Press E: Boss Fight" prompt already uses -- so there's
+# a window to spend whatever souls got earned clearing the castle
+# BEFORE walking into the arena. Stays up until the player actually
+# enters the arena (hud.py/main.py gate its visibility on bases_cleared
+# and not in_arena, same as the boss-fight prompt).
+#
+# Every entry is a plain dict: "key" (what Player.purchase_shop_item
+# switches on and what SHOP_ITEM_COLORS below is keyed by), "name"
+# (button label), "cost" (in souls). Each one is one-time-only per run
+# -- buying it adds its key to Player.shop_purchases, and a key already
+# in there can't be bought again (see purchase_shop_item in player.py).
+SHOP_ITEMS = [
+    {"key": "speed", "name": "+30% Speed", "cost": 400},
+    {"key": "damage", "name": "+50% Damage", "cost": 350},
+    {"key": "health", "name": "+40% Max HP", "cost": 295},
+    {"key": "relic", "name": "??? Relic", "cost": 600},
+]
+SHOP_SPEED_MULTIPLIER = 1.30
+SHOP_DAMAGE_MULTIPLIER = 1.50
+SHOP_HEALTH_MULTIPLIER = 1.40
+
+# The "??? Relic" -- a brand new weapon with stats rolled randomly
+# within these ranges the moment it's bought (player.py's
+# _make_relic_weapon), instead of one fixed, known set of numbers like
+# the Pistol/SMG have. That randomness is the "secret"/"random
+# features" the shop promises for it.
+SHOP_RELIC_NAME = "??? Relic"
+SHOP_RELIC_DAMAGE_RANGE = (8, 40)
+SHOP_RELIC_FIRE_INTERVAL_RANGE = (0.05, 0.35)      # seconds between shots -- LOWER is faster
+SHOP_RELIC_PROJECTILE_SPEED_RANGE = (500, 900)
+
+# A small color accent per item, used for the little bar on the left
+# edge of each button (hud.py's draw_shop) -- purely decorative, just
+# makes the four items easier to tell apart at a glance.
+SHOP_ITEM_COLORS = {
+    "speed": (110, 210, 230),
+    "damage": (230, 100, 80),
+    "health": (120, 220, 140),
+    "relic": (190, 120, 230),
+}
+
+# Panel layout -- drawn directly on the real window (like the pause
+# button/overlay), not on the zoomed game_surface, so it stays a fixed,
+# crisp size and a stable clickable position no matter what zoom is
+# currently active on either map. Rounded corners throughout
+# (border_radius, pygame 2.x's pygame.draw.rect) instead of the old
+# sharp-edged boxes.
+SHOP_PANEL_MARGIN = 24                  # distance from the right/bottom edges of the screen
+SHOP_PANEL_WIDTH = 340
+SHOP_PANEL_BORDER_RADIUS = 14
+# Step 54: recolored from indigo/blue to a deep blood-red, matching the
+# souls badge's own step 54 recolor and the game's existing red/black look.
+SHOP_PANEL_BG_COLOR = (32, 10, 12, 228)      # RGBA, deep blood-red -- matches the souls badge
+SHOP_PANEL_BORDER_COLOR = (205, 60, 55)
+SHOP_TITLE_TEXT = "SHOP"
+SHOP_TITLE_FONT_SIZE = 28
+SHOP_TITLE_COLOR = (255, 210, 205)
+SHOP_DIVIDER_COLOR = (140, 55, 55)
+SHOP_ITEM_FONT_SIZE = 23
+SHOP_ITEM_HEIGHT = 56
+SHOP_ITEM_GAP = 12                      # vertical space between stacked item buttons
+SHOP_PANEL_PADDING = 16                 # space between the panel's edge and its content
+SHOP_BUTTON_BORDER_RADIUS = 10
+SHOP_BUTTON_ACCENT_WIDTH = 6             # the colored bar on each button's left edge
+SHOP_COST_ICON_RADIUS = 6                # smaller version of the souls badge's orb icon,
+                                           # shown next to each item's cost
+
+SHOP_BUTTON_COLOR = (38, 36, 55)
+SHOP_BUTTON_HOVER_COLOR = (58, 56, 85)
+SHOP_BUTTON_DISABLED_COLOR = (28, 26, 34)     # not enough souls yet
+SHOP_BUTTON_PURCHASED_COLOR = (28, 55, 40)    # already owned -- green, reads as "done"
+SHOP_BUTTON_BORDER_COLOR = (110, 45, 45)      # step 54: red-tinted, was indigo
+SHOP_BUTTON_TEXT_COLOR = (230, 230, 240)
+SHOP_BUTTON_DISABLED_TEXT_COLOR = (110, 105, 120)
+SHOP_BUTTON_PURCHASED_TEXT = "Owned"
+SHOP_BUTTON_PURCHASED_TEXT_COLOR = (150, 230, 175)

@@ -3,10 +3,24 @@ Player: holds the player's rect (world position + size) and knows how to
 move itself (with real wall collision) and draw itself.
 """
 
+import random
+
 import pygame
 
 import settings
 from weapon import Weapon
+
+
+def _make_relic_weapon():
+    """Step 52: the shop's 600-soul "??? Relic" -- a brand new weapon
+    with randomly rolled stats (within settings.SHOP_RELIC_*_RANGE),
+    rolled once at the moment it's bought. That's the "random features"
+    the relic promises: you don't know whether you're getting a fast,
+    weak popgun or a slow, devastating cannon until you actually buy it."""
+    damage = random.uniform(*settings.SHOP_RELIC_DAMAGE_RANGE)
+    fire_interval = random.uniform(*settings.SHOP_RELIC_FIRE_INTERVAL_RANGE)
+    projectile_speed = random.uniform(*settings.SHOP_RELIC_PROJECTILE_SPEED_RANGE)
+    return Weapon(settings.SHOP_RELIC_NAME, damage, fire_interval, projectile_speed)
 
 
 # Step 39: the three walk-cycle frames, loaded and cleaned up ONCE and
@@ -140,6 +154,24 @@ class Player:
         self.anim_frame_index = 0
         self.anim_timer = 0.0
 
+        # Step 52: souls -- earned by killing enemies (main.py awards
+        # them, see settings.SOULS_PER_ENEMY/SOULS_PER_GUARDIAN), spent
+        # in the shop that appears once every castle base is cleared.
+        # shop_purchases tracks which of settings.SHOP_ITEMS' keys have
+        # already been bought -- every item is one-time-only, so this is
+        # just a set of the keys bought so far, checked before letting a
+        # click do anything (see purchase_shop_item).
+        self.souls = 0
+        self.shop_purchases = set()
+
+        # Applied as flat multipliers everywhere the base numbers are
+        # normally used (handle_movement for speed, main.py's own
+        # projectile-damage line for damage) -- 1.0 (no change) until the
+        # matching shop item is bought, at which point it's set once and
+        # never touched again.
+        self.speed_multiplier = 1.0
+        self.damage_multiplier = 1.0
+
     def handle_movement(self, dt, keys, wall_rects, map_rect=None):
         """Read WASD state and move, sliding along any wall_rects we bump into.
 
@@ -169,7 +201,9 @@ class Player:
         # step), each followed by its own collision check. This is what
         # lets you slide smoothly along a wall when moving into it at an
         # angle, instead of getting fully stopped.
-        self.pos.x += dx * settings.PLAYER_SPEED * dt
+        # Step 52: speed_multiplier is 1.0 (no change) until the shop's
+        # "+30% Speed" item is bought -- see Player.__init__.
+        self.pos.x += dx * settings.PLAYER_SPEED * self.speed_multiplier * dt
         self.rect.x = round(self.pos.x)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
@@ -182,7 +216,7 @@ class Player:
                 # into the wall and "remember" it next frame.
                 self.pos.x = self.rect.x
 
-        self.pos.y += dy * settings.PLAYER_SPEED * dt
+        self.pos.y += dy * settings.PLAYER_SPEED * self.speed_multiplier * dt
         self.rect.y = round(self.pos.y)
         for wall_rect in wall_rects:
             if self.rect.colliderect(wall_rect):
@@ -241,6 +275,42 @@ class Player:
                 return
         self.weapons.append(weapon)
         self.weapon_index = len(self.weapons) - 1
+
+    def add_souls(self, amount):
+        """Step 52: called by main.py every time a projectile kill lands
+        (see settings.SOULS_PER_ENEMY/SOULS_PER_GUARDIAN) -- souls are
+        the only thing the shop's buttons check against."""
+        self.souls += amount
+
+    def purchase_shop_item(self, item):
+        """`item` is one of settings.SHOP_ITEMS' own dicts (has "key",
+        "name", "cost"). Returns True if the purchase actually went
+        through -- False if it was already owned or there aren't enough
+        souls, which main.py doesn't need to check itself first, it can
+        just call this on every click and let it no-op safely."""
+        key = item["key"]
+        if key in self.shop_purchases or self.souls < item["cost"]:
+            return False
+
+        self.souls -= item["cost"]
+        self.shop_purchases.add(key)
+
+        if key == "speed":
+            self.speed_multiplier *= settings.SHOP_SPEED_MULTIPLIER
+        elif key == "damage":
+            self.damage_multiplier *= settings.SHOP_DAMAGE_MULTIPLIER
+        elif key == "health":
+            # Raises the ceiling AND heals by the same amount the
+            # ceiling just went up by -- buying this mid-fight actually
+            # restores health instead of just raising a cap you're
+            # already far below.
+            old_max_health = self.max_health
+            self.max_health *= settings.SHOP_HEALTH_MULTIPLIER
+            self.health += self.max_health - old_max_health
+        elif key == "relic":
+            self.add_weapon(_make_relic_weapon())
+
+        return True
 
     def handle_aim(self, camera_x, camera_y, view_width, view_height):
         """Point aim_dir from the player's on-screen position toward the mouse."""

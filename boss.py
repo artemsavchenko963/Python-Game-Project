@@ -25,6 +25,8 @@ enraged, so it visibly looks like something just got worse -- no
 separate hand-drawn "angry" art needed for that.
 """
 
+import random
+
 import pygame
 
 import settings
@@ -130,6 +132,19 @@ def _get_frames():
     return _frames, _flash_frames, _rage_frames, _rage_flash_frames
 
 
+def preload():
+    """Step 54: kicks off the one-time, real per-pixel dekey/scale work
+    inside _get_frames() early -- called once from main() right after the
+    instructions screen (a black screen the player is already sitting on
+    for a moment anyway), instead of letting it happen for the very first
+    time the instant a Boss() gets constructed at arena entry. That first-
+    time cost (looping over every pixel of 4 full-resolution images) is
+    exactly what caused the visible ~3 second freeze the moment the player
+    walked into the boss fight -- calling this early hides it behind a
+    screen that's already just sitting there waiting for a keypress."""
+    _get_frames()
+
+
 class Boss:
     def __init__(self, center, difficulty):
         """`difficulty` is one of settings.DIFFICULTIES' own value dicts
@@ -152,6 +167,13 @@ class Boss:
 
         self.fire_cooldown = 0.0
         self.hit_flash_timer = 0.0
+
+        # Step 54: reinforcements -- see _tick_minion_spawns below for the
+        # full explanation of why this queues up WORLD POSITIONS instead
+        # of creating Enemy instances directly (Boss deliberately never
+        # imports enemy.py).
+        self.minion_spawn_cooldown = settings.BOSS_MINION_SPAWN_INTERVAL
+        self.pending_minion_spawns = []
 
         self.frames, self.flash_frames, self.rage_frames, self.rage_flash_frames = _get_frames()
         self.anim_frame_index = 0
@@ -229,7 +251,37 @@ class Boss:
                     self.rect.top = wall_rect.bottom
                 self.pos.y = self.rect.y
 
+        self._tick_minion_spawns(dt)
+
         return self._shoot(direction, dt, player)
+
+    def _tick_minion_spawns(self, dt):
+        """Step 54: periodically calls in reinforcements -- a handful of
+        the same regular enemies that spawn early in the castle, dropped
+        in a ring around the boss's own current position. The interval
+        shortens once enraged (BOSS_MINION_SPAWN_INTERVAL_ENRAGED), same
+        "the fight gets worse" idea as the damage/speed/attack-interval
+        bumps. Boss deliberately never imports Enemy (it stays a plain
+        "stats + movement + shooting" object, same reasoning as its own
+        module docstring) -- it just queues up WHERE each one should
+        appear, in self.pending_minion_spawns, and main.py drains that
+        list into real Enemy() instances once per frame, right after
+        calling update() -- the same request/hand-back pattern update()
+        already uses for a freshly-fired Projectile."""
+        interval = (
+            settings.BOSS_MINION_SPAWN_INTERVAL_ENRAGED
+            if self.enraged
+            else settings.BOSS_MINION_SPAWN_INTERVAL
+        )
+        self.minion_spawn_cooldown -= dt
+        if self.minion_spawn_cooldown > 0:
+            return
+        self.minion_spawn_cooldown += interval
+
+        for _ in range(settings.BOSS_MINION_SPAWN_COUNT):
+            offset = pygame.Vector2(settings.BOSS_MINION_SPAWN_RADIUS, 0).rotate(random.uniform(0, 360))
+            spawn_center = (self.rect.centerx + offset.x, self.rect.centery + offset.y)
+            self.pending_minion_spawns.append(spawn_center)
 
     def _shoot(self, direction_to_player, dt, player):
         """Fires straight at the player once they're within

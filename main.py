@@ -176,6 +176,7 @@ from mine import Mine
 from explosion import Explosion
 from hit_effect import HitEffect
 from boss import Boss
+import boss as boss_module
 import menu
 import hud
 
@@ -445,6 +446,15 @@ def main():
         pygame.quit()
         return
 
+    # Step 54: pays the boss's one-time, real per-pixel dekey/scale cost
+    # right here -- while the player is already sitting on the black
+    # instructions screen for a moment -- instead of the first time a
+    # Boss() actually gets constructed, at arena-entry. Without this, that
+    # cost (looping over every pixel of 4 full-resolution images) happened
+    # synchronously the instant the player pressed E for the boss fight,
+    # which is exactly what caused the visible ~3 second freeze.
+    boss_module.preload()
+
     # The world is drawn onto this smaller surface, then scaled up to
     # fill the real window each frame -- that's the whole zoom effect
     # (see the step 22 note in the module docstring above). Uses true
@@ -514,6 +524,20 @@ def main():
                     paused = True
                 elif paused and hud.get_leave_button_rect(screen).collidepoint(event.pos):
                     running = False
+                elif (
+                    not paused and not game_over and not won
+                    and bases_cleared and not in_arena
+                ):
+                    # Step 52: the shop panel is only up during this same
+                    # window (see hud.draw_shop's own gating in the draw
+                    # section below) -- purchase_shop_item already no-ops
+                    # safely on a click that can't afford/already owns an
+                    # item, so there's nothing else to check here besides
+                    # "did this click actually land on one of the buttons."
+                    for item, rect in hud.get_shop_button_rects(screen):
+                        if rect.collidepoint(event.pos):
+                            player.purchase_shop_item(item)
+                            break
             elif (
                 event.type == pygame.KEYDOWN
                 and not game_over and not won and not paused
@@ -684,10 +708,21 @@ def main():
             # the player does. A guardian never moves, and instead may
             # return a freshly-fired Projectile here (step 27) -- that's
             # the only case update() returns anything but None.
-            for enemy in room.enemies:
+            # Step 54: room.enemies[:] -- a snapshot copy -- since the
+            # Boss branch below can append fresh minions straight into
+            # room.enemies mid-loop (reinforcements); iterating a copy
+            # means a minion that just spawned this frame waits until
+            # next frame to get its own update() call, rather than
+            # potentially being visited twice (once here, once because
+            # the live list grew under the loop).
+            for enemy in room.enemies[:]:
                 new_enemy_projectile = enemy.update(dt, player, room.wall_rects)
                 if new_enemy_projectile is not None:
                     enemy_projectiles.append(new_enemy_projectile)
+                if isinstance(enemy, Boss) and enemy.pending_minion_spawns:
+                    for spawn_center in enemy.pending_minion_spawns:
+                        room.enemies.append(Enemy(center=spawn_center))
+                    enemy.pending_minion_spawns = []
 
             # Touching an enemy damages the player, unless still
             # invulnerable from a recent hit. take_damage() returns True
@@ -728,8 +763,16 @@ def main():
             left_button_held = mouse_buttons[0]
             if left_button_held and player.can_fire():
                 weapon = player.equipped_weapon
+                # Step 52: the shop's "+50% Damage" item is a flat
+                # multiplier on top of whatever weapon is equipped --
+                # 1.0 (no change) until it's actually bought.
                 projectiles.append(
-                    Projectile(player.rect.center, player.aim_dir, weapon.projectile_speed, weapon.damage)
+                    Projectile(
+                        player.rect.center,
+                        player.aim_dir,
+                        weapon.projectile_speed,
+                        weapon.damage * player.damage_multiplier,
+                    )
                 )
                 player.reset_fire_cooldown()
 
@@ -750,6 +793,14 @@ def main():
                     hit_effects.append(HitEffect(projectile.pos))
                     if hit_enemy.take_damage(projectile.damage):
                         room.enemies.remove(hit_enemy)
+                        # Step 52: souls for the kill -- isinstance guards
+                        # this against the boss (a separate class, not an
+                        # Enemy) so beating it doesn't also hand out a
+                        # regular kill's worth of souls on top of ending
+                        # the run in victory.
+                        if isinstance(hit_enemy, Enemy):
+                            reward = settings.SOULS_PER_GUARDIAN if hit_enemy.is_guardian else settings.SOULS_PER_ENEMY
+                            player.add_souls(reward)
                     projectiles.remove(projectile)
                     continue
 
@@ -837,6 +888,7 @@ def main():
             player_screen_y = player.rect.centery - camera_y
             game_surface.blit(fog_surface, (player_screen_x - fog_radius, player_screen_y - fog_radius))
 
+        hud.draw_hud_panel(game_surface)
         hud.draw_health_bar(game_surface, player)
         hud.draw_weapon_label(game_surface, player)
 
@@ -876,6 +928,36 @@ def main():
         hud.draw_pause_button(screen)
         if paused:
             hud.draw_pause_overlay(screen)
+
+        # Step 53: the souls badge -- same "draw on the real screen, not
+        # game_surface" reasoning as the pause button, so it stays a
+        # crisp, fixed size top-center no matter which map's zoom is
+        # currently active, instead of getting stretched along with
+        # everything else drawn on the zoomed internal surface. Always
+        # visible (not gated on bases_cleared like the shop below) --
+        # it's a persistent currency counter, same idea as the health bar.
+        hud.draw_souls_badge(screen, player)
+
+        # Step 54: the boss health bar -- top-center, just below the souls
+        # badge, shown only while in_arena. There's no dedicated `boss`
+        # variable tracked through the whole game loop -- it's just found
+        # fresh each frame the same way the isinstance(..., Boss) checks
+        # elsewhere already work, since the boss is the only Boss instance
+        # that's ever in room.enemies.
+        if in_arena:
+            current_boss = next((enemy for enemy in room.enemies if isinstance(enemy, Boss)), None)
+            if current_boss is not None:
+                hud.draw_boss_health_bar(screen, current_boss)
+
+        # Step 52: the shop panel -- same reasoning as the pause button
+        # for drawing it on the real `screen` rather than game_surface:
+        # its buttons need to stay a fixed, clickable size regardless of
+        # which map's zoom is currently active, and event.pos from
+        # MOUSEBUTTONDOWN is always in real window coordinates, which
+        # only lines up with get_shop_button_rects if this is drawn here
+        # too. Same visibility window as the boss-fight prompt.
+        if bases_cleared and not in_arena and not game_over and not won and not paused:
+            hud.draw_shop(screen, player)
 
         pygame.display.flip()
 
