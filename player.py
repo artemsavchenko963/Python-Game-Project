@@ -166,11 +166,24 @@ class Player:
 
         # Applied as flat multipliers everywhere the base numbers are
         # normally used (handle_movement for speed, main.py's own
-        # projectile-damage line for damage) -- 1.0 (no change) until the
-        # matching shop item is bought, at which point it's set once and
-        # never touched again.
+        # projectile-damage line for damage, reset_fire_cooldown for
+        # attack speed) -- 1.0 (no change) until the matching shop item
+        # is bought or a level is gained, both of which multiply these
+        # in place (*=) rather than resetting them, so every source of
+        # a bonus stacks with every other one already applied.
         self.speed_multiplier = 1.0
         self.damage_multiplier = 1.0
+        self.attack_speed_multiplier = 1.0
+
+        # Step 55: leveling -- every kill grants xp (main.py's
+        # add_experience calls, right next to the souls award for that
+        # same kill). Level 1 is the starting level (no bonus yet); each
+        # level gained multiplies speed/damage/attack-speed/max-hp by
+        # another +2.5% (see _level_up) and requires more xp than the
+        # last one did (see xp_required_for_next_level). Capped at
+        # PLAYER_MAX_LEVEL.
+        self.level = 1
+        self.xp = 0.0
 
     def handle_movement(self, dt, keys, wall_rects, map_rect=None):
         """Read WASD state and move, sliding along any wall_rects we bump into.
@@ -276,6 +289,55 @@ class Player:
         self.weapons.append(weapon)
         self.weapon_index = len(self.weapons) - 1
 
+    def xp_required_for_next_level(self):
+        """How much banked xp it takes to go from the current level to
+        the next one -- grows every level (LEVEL_XP_GROWTH times the
+        level before it), so the climb gets steadily longer the higher
+        the level. Returns None once already at PLAYER_MAX_LEVEL --
+        there's no "next level" left to require anything for, which is
+        also how add_experience/hud.py's draw_level_bar know to stop
+        showing a progress fraction and just show "MAX" instead."""
+        if self.level >= settings.PLAYER_MAX_LEVEL:
+            return None
+        return round(settings.LEVEL_XP_BASE * (settings.LEVEL_XP_GROWTH ** (self.level - 1)))
+
+    def add_experience(self, amount):
+        """Step 55: called by main.py every time a kill lands, right next
+        to the matching add_souls call for that same kill. Banks the xp
+        and levels up -- possibly more than once, if one big reward (a
+        boss kill) covers several levels at once -- as soon as there's
+        enough for the next one. A no-op once already at
+        PLAYER_MAX_LEVEL, so xp earned past that point is just discarded
+        rather than piling up uselessly."""
+        if self.level >= settings.PLAYER_MAX_LEVEL:
+            return
+
+        self.xp += amount
+        xp_required = self.xp_required_for_next_level()
+        while xp_required is not None and self.xp >= xp_required:
+            self.xp -= xp_required
+            self._level_up()
+            xp_required = self.xp_required_for_next_level()
+
+    def _level_up(self):
+        """+2.5% (settings.LEVEL_ATTRIBUTE_BONUS_PER_LEVEL) to every
+        attribute -- speed, damage, attack speed, max health -- applied
+        the same "multiply whatever's already there" way
+        purchase_shop_item's own buffs are, so this compounds with
+        itself across levels AND with any shop items already bought,
+        instead of overwriting them. max_health also heals by the exact
+        amount the ceiling just went up by, same reasoning as the
+        shop's own +Max HP item."""
+        self.level += 1
+        growth = 1 + settings.LEVEL_ATTRIBUTE_BONUS_PER_LEVEL
+        self.speed_multiplier *= growth
+        self.damage_multiplier *= growth
+        self.attack_speed_multiplier *= growth
+
+        old_max_health = self.max_health
+        self.max_health *= growth
+        self.health += self.max_health - old_max_health
+
     def add_souls(self, amount):
         """Step 52: called by main.py every time a projectile kill lands
         (see settings.SOULS_PER_ENEMY/SOULS_PER_GUARDIAN) -- souls are
@@ -354,8 +416,10 @@ class Player:
     def reset_fire_cooldown(self):
         """Call this every time a shot is actually fired. Uses whichever
         weapon is currently equipped, so switching weapons changes the
-        rate of fire immediately."""
-        self.fire_cooldown = self.equipped_weapon.fire_interval
+        rate of fire immediately. Divided by attack_speed_multiplier
+        (step 55, >= 1.0) so leveling up shortens the cooldown -- fires
+        MORE often -- rather than lengthening it."""
+        self.fire_cooldown = self.equipped_weapon.fire_interval / self.attack_speed_multiplier
 
     def tick_invulnerability(self, dt):
         """Count the invulnerability timer down toward 0. Call this once per frame."""

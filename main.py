@@ -170,8 +170,6 @@ from player import Player
 from room import Room
 from projectile import Projectile
 from enemy import Enemy
-from weapon import Weapon
-from pickup import WeaponPickup
 from mine import Mine
 from explosion import Explosion
 from hit_effect import HitEffect
@@ -191,43 +189,16 @@ def create_game_state(difficulty):
     e.g. {"mines": 130, "castle_enemies": 10, "map_enemies": 0}."""
     room = Room()
 
-    # Step 31: this USED to fall back to a single base at the map's dead
-    # center whenever room.base_spawns came back empty ("or
-    # [room.rect.center]") -- meant to avoid crashing on a totally blank
-    # map early on. But that silent fallback is exactly what caused
-    # enemies to keep appearing after deleting every "enemy" point in
-    # Tiled, or a brand new point to seemingly "spawn somewhere else" --
-    # in both cases room.base_spawns was actually empty (nothing valid
-    # was read from the map), so it silently substituted one base
-    # sitting at the map's exact center instead of showing "0 bases."
-    # Now an empty map genuinely means zero bases -- no substitute.
-    base_spawns = room.base_spawns
-    bases = []
-    for base_center in base_spawns:
-        guardian = Enemy(center=base_center, is_guardian=True)
-
-        minion_count = random.randint(settings.BASE_MIN_ENEMIES, settings.BASE_MAX_ENEMIES)
-        minions = []
-        for _ in range(minion_count):
-            offset_x = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
-            offset_y = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
-            minion_center = (base_center[0] + offset_x, base_center[1] + offset_y)
-            minions.append(Enemy(center=minion_center))
-
-        room.enemies.append(guardian)
-        room.enemies.extend(minions)
-        bases.append({"guardian": guardian, "minions": minions})
+    # Step 56: building the base list itself now lives in its own
+    # helper (_build_bases below) -- the arena (arena.tmx) has its own
+    # "enemy"-class objects now too (towers/minions, same as the
+    # castle), so main()'s own arena-entry code needs to run this exact
+    # same logic a second time, on a different Room.
+    bases = _build_bases(room)
 
     # Player spawns at the map's "spawnpoint" object, same fallback idea.
     player_spawn = room.player_spawn or room.rect.center
     player = Player(center=player_spawn)
-
-    # An SMG pickup near the player's start, so there's still something
-    # to grab early on -- offset to the side so it's not sitting exactly
-    # on top of the spawn point.
-    smg_weapon = Weapon("SMG", settings.SMG_DAMAGE, settings.SMG_FIRE_INTERVAL, settings.SMG_PROJECTILE_SPEED)
-    pickup_center = (player_spawn[0] + 150, player_spawn[1])
-    room.items.append(WeaponPickup(center=pickup_center, weapon=smg_weapon))
 
     mine_count = difficulty["mines"]
     mines = _spawn_mines(room, player_spawn, mine_count)
@@ -246,6 +217,42 @@ def create_game_state(difficulty):
     projectiles = []
     enemy_projectiles = []
     return room, player, projectiles, enemy_projectiles, bases, mines
+
+
+def _build_bases(room):
+    """Step 26b (pulled into its own function, step 56): one base per
+    "enemy"-class object the map has (room.base_spawns, read by
+    room.py's _read_spawn_points) -- a stationary, tanky guardian
+    exactly on that point, plus a scattered group of regular enemies
+    around it. Returns the same list of {"guardian": ..., "minions":
+    [...]} dicts create_game_state's own bases_remaining/"Bases: X/Y"
+    counter has always used.
+
+    Step 56: this used to be create_game_state's own inline loop, over
+    the CASTLE map only. Pulled out so main()'s arena-entry code (the
+    K_e handler) can call it a second time on the arena Room too --
+    arena.tmx now has its own "enemy" objects placed in Tiled (towers +
+    minions, same as the castle), instead of just the boss standing
+    alone. An empty room.base_spawns (nothing placed in Tiled) still
+    means zero bases, no substitute fallback -- same reasoning as
+    before this was split out."""
+    bases = []
+    for base_center in room.base_spawns:
+        guardian = Enemy(center=base_center, is_guardian=True)
+
+        minion_count = random.randint(settings.BASE_MIN_ENEMIES, settings.BASE_MAX_ENEMIES)
+        minions = []
+        for _ in range(minion_count):
+            offset_x = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
+            offset_y = random.uniform(-settings.BASE_SCATTER_RADIUS, settings.BASE_SCATTER_RADIUS)
+            minion_center = (base_center[0] + offset_x, base_center[1] + offset_y)
+            minions.append(Enemy(center=minion_center))
+
+        room.enemies.append(guardian)
+        room.enemies.extend(minions)
+        bases.append({"guardian": guardian, "minions": minions})
+
+    return bases
 
 
 def _spawn_mines(room, player_spawn, mine_count):
@@ -455,6 +462,23 @@ def main():
     # which is exactly what caused the visible ~3 second freeze.
     boss_module.preload()
 
+    # Step 57: the arena Room itself -- built early and reused later
+    # (see the K_e handler further down, which just points `room` at
+    # this instead of constructing a fresh one) instead of loading it
+    # for the first time at the exact moment the player presses E.
+    # Room() parsing the .tmx, pre-rendering the whole background/
+    # foreground, and converting the tileset image all cost real,
+    # measurable time -- especially now that arena.tmx also carries the
+    # ~30 tower/minion spawn points (step 56). That cost used to all
+    # happen synchronously right as the player walked into the boss
+    # fight, which is exactly what caused the freeze getting reported
+    # even after the boss's own art got preloaded above -- the boss
+    # wasn't the only expensive thing happening at that moment anymore.
+    # Rebuilt fresh every time the castle restarts (the R-key handler
+    # below) so a second playthrough in the same session doesn't reuse
+    # a Room some earlier run already fought through.
+    arena_room = Room(settings.ARENA_MAP_PATH)
+
     # The world is drawn onto this smaller surface, then scaled up to
     # fill the real window each frame -- that's the whole zoom effect
     # (see the step 22 note in the module docstring above). Uses true
@@ -485,6 +509,10 @@ def main():
     in_arena = False  # step 46: True once the castle's cleared and the player's moved to arena.tmx
     paused = False
     scanner_cooldown = 0.0  # step 35: seconds left before E can scan again
+    # Step 58: counts down from settings.TOWER_INTRO_PROMPT_DURATION,
+    # only while the game is actually running (see the update section
+    # below) -- drives the one-time "Destroy all N towers" hint.
+    tower_prompt_timer = settings.TOWER_INTRO_PROMPT_DURATION
 
     dt = 0  # time (seconds) since the last frame; updated at the end of each loop
     running = True
@@ -494,10 +522,13 @@ def main():
         # "are all bases down" too, to decide whether E means "enter the
         # boss fight" instead of its usual "scan for mines" -- see the
         # K_e branch just below.
-        bases_cleared = bases and all(
-            base["guardian"].health <= 0 and all(m.health <= 0 for m in base["minions"])
-            for base in bases
-        )
+        #
+        # Step 58: only the GUARDIAN (tower) has to be dead -- minions
+        # scattered around a base no longer block the shop/boss fight at
+        # all, they're purely optional extra souls/xp for players who
+        # want to farm them. Used to also require every minion dead too
+        # (`and all(m.health <= 0 for m in base["minions"])`).
+        bases_cleared = bases and all(base["guardian"].health <= 0 for base in bases)
 
         # 1. Handle input/events
         for event in pygame.event.get():
@@ -513,6 +544,13 @@ def main():
                 won = False
                 in_arena = False
                 scanner_cooldown = 0.0
+                tower_prompt_timer = settings.TOWER_INTRO_PROMPT_DURATION
+                # Step 57: a fresh, untouched arena Room ready for this new
+                # playthrough -- the old one (if this run had gotten that
+                # far) may have had its bases/boss fought through and
+                # removed from its enemies list, so it can't just be
+                # reused as-is for a second trip through the castle.
+                arena_room = Room(settings.ARENA_MAP_PATH)
                 # Step 49: undo the arena-only zoom-in (if the run that
                 # just ended had gotten that far) -- restarting always
                 # puts you back on the castle map, which needs its own,
@@ -562,7 +600,35 @@ def main():
                     if not menu.run_arena_backstory(screen, clock):
                         running = False
                     else:
-                        room = Room(settings.ARENA_MAP_PATH)
+                        # Step 57: reuse the arena Room built early
+                        # (right after the instructions screen, or right
+                        # after the last restart -- see arena_room's own
+                        # comment up there) instead of constructing a
+                        # fresh one here. This is the whole fix for the
+                        # boss-fight-entry freeze -- Room() parsing the
+                        # .tmx and pre-rendering the background/
+                        # foreground is real, measurable work, and it
+                        # used to all happen right at this exact moment.
+                        room = arena_room
+
+                        # Step 56: arena.tmx now has its own "enemy"-class
+                        # objects placed in Tiled -- towers (guardians)
+                        # plus a scattered group of regular enemies
+                        # around each one, exactly the same setup the
+                        # castle map's own bases use (_build_bases is the
+                        # very same function create_game_state calls).
+                        # Reassigning `bases` here replaces the castle's
+                        # (already fully cleared, or this prompt couldn't
+                        # have fired) bases list with the arena's own --
+                        # the "Bases: X/Y" HUD counter and this same
+                        # bases_cleared check now track the arena's
+                        # fight instead. Victory still only fires once
+                        # room.enemies is completely empty (further down,
+                        # the "in_arena and not room.enemies" check), so
+                        # every arena tower/minion has to die too, not
+                        # just the boss.
+                        bases = _build_bases(room)
+
                         if room.player_spawn is not None:
                             player.rect.center = room.player_spawn
                             player.pos = pygame.Vector2(player.rect.topleft)
@@ -683,6 +749,11 @@ def main():
             # down the same way projectiles/enemies already update
             # themselves every frame.
             scanner_cooldown = max(0.0, scanner_cooldown - dt)
+            # Step 58: the "Destroy all N towers" hint's own countdown --
+            # only ticks while the game is genuinely running, same as
+            # scanner_cooldown just above, so pausing doesn't quietly eat
+            # into the few seconds it's shown for.
+            tower_prompt_timer = max(0.0, tower_prompt_timer - dt)
             for mine in mines:
                 mine.update(dt)
             for explosion in explosions:
@@ -797,10 +868,22 @@ def main():
                         # this against the boss (a separate class, not an
                         # Enemy) so beating it doesn't also hand out a
                         # regular kill's worth of souls on top of ending
-                        # the run in victory.
+                        # the run in victory. Step 55: xp works the same
+                        # way, right alongside it -- every kill (regular
+                        # enemy, guardian, boss-fight reinforcement, or
+                        # the boss itself) feeds Player.add_experience,
+                        # which levels the player up on its own once
+                        # there's enough banked.
                         if isinstance(hit_enemy, Enemy):
                             reward = settings.SOULS_PER_GUARDIAN if hit_enemy.is_guardian else settings.SOULS_PER_ENEMY
                             player.add_souls(reward)
+                            xp_reward = (
+                                settings.LEVEL_XP_PER_GUARDIAN_KILL if hit_enemy.is_guardian
+                                else settings.LEVEL_XP_PER_ENEMY_KILL
+                            )
+                            player.add_experience(xp_reward)
+                        else:
+                            player.add_experience(settings.LEVEL_XP_PER_BOSS_KILL)
                     projectiles.remove(projectile)
                     continue
 
@@ -890,17 +973,22 @@ def main():
 
         hud.draw_hud_panel(game_surface)
         hud.draw_health_bar(game_surface, player)
-        hud.draw_weapon_label(game_surface, player)
 
-        # A base still counts as "remaining" if its guardian OR any of
-        # its minions are still alive -- clearing one means ALL of them
-        # (guardian included) are dead.
-        bases_remaining = sum(
-            1 for base in bases
-            if base["guardian"].health > 0 or any(m.health > 0 for m in base["minions"])
-        )
+        # Step 58: a base now counts as "remaining" purely by whether its
+        # TOWER (guardian) is still alive -- minions no longer matter
+        # for this count at all, matching bases_cleared's own change
+        # above (they're optional extra souls/xp, not a requirement).
+        bases_remaining = sum(1 for base in bases if base["guardian"].health > 0)
         hud.draw_bases_label(game_surface, bases_remaining, len(bases))
         hud.draw_scanner_label(game_surface, scanner_cooldown)
+
+        # Step 58: the one-time "Destroy all N towers" hint -- only
+        # while in the castle (not in_arena) and only until its own
+        # timer runs out; hud.draw_tower_intro_prompt no-ops on its own
+        # once that hits 0, but the in_arena guard here keeps it from
+        # ever showing on the arena's own, differently-zoomed surface.
+        if not in_arena:
+            hud.draw_tower_intro_prompt(game_surface, len(bases), tower_prompt_timer)
 
         # Step 46: clearing every base no longer sets `won` here -- see
         # the in_arena check up in the update section. bases_remaining
@@ -937,6 +1025,12 @@ def main():
         # visible (not gated on bases_cleared like the shop below) --
         # it's a persistent currency counter, same idea as the health bar.
         hud.draw_souls_badge(screen, player)
+
+        # Step 55: the XP progress strip -- bottom-center, always
+        # visible (same "persistent counter" reasoning as the souls
+        # badge above), drawn on the real screen so it stays a fixed,
+        # crisp size no matter which map's zoom is currently active.
+        hud.draw_level_bar(screen, player)
 
         # Step 54: the boss health bar -- top-center, just below the souls
         # badge, shown only while in_arena. There's no dedicated `boss`

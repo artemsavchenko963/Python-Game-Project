@@ -109,15 +109,13 @@ GAME_OVER_HINT_FONT_SIZE = 28
 
 # --- Weapons (step 19) ---
 # Each weapon is just a different combination of these three numbers.
+# Step 55: the SMG (and its pickup that used to sit as a green square
+# near the player's spawn) is gone -- the player now starts with, and
+# only ever carries, the Pistol. The on-screen "Weapon: ..." label is
+# gone too, for the same reason (nothing left to switch between).
 PISTOL_DAMAGE = 10                  # 3 hits to kill the current 30-HP enemy
 PISTOL_FIRE_INTERVAL = 0.25          # 4 shots/sec
 PISTOL_PROJECTILE_SPEED = 600
-
-SMG_DAMAGE = 4                       # weaker per hit...
-SMG_FIRE_INTERVAL = 0.08             # ...but fires far more often (12.5 shots/sec)
-SMG_PROJECTILE_SPEED = 650
-
-WEAPON_LABEL_FONT_SIZE = 22           # HUD text showing which weapon is equipped
 
 # --- Souls (step 52, redesigned step 53) ---
 # The shop's currency -- earned by killing enemies (see the "Shop" block
@@ -147,6 +145,54 @@ SOULS_BADGE_TEXT_COLOR = (255, 228, 222)
 SOULS_ICON_RADIUS = 9
 SOULS_ICON_COLOR = (215, 35, 35)             # step 54: red, was pale blue
 SOULS_ICON_CORE_COLOR = (255, 205, 195)
+
+# --- Leveling (step 55) ---
+# Every kill (a regular enemy/minion, a guardian/"tower", a boss-fight
+# reinforcement, or the boss itself) grants XP -- see main.py's
+# projectile-hit loop, right next to the souls award for that same
+# kill. Player.add_experience banks it and levels up (possibly more
+# than once from one big reward, like a boss kill) as soon as there's
+# enough -- see Player.xp_required_for_next_level for the "the higher
+# the level, the more you need" curve. Capped at PLAYER_MAX_LEVEL --
+# once there, add_experience is a no-op and no further xp is tracked.
+PLAYER_MAX_LEVEL = 30
+
+# Every level-up multiplies speed/damage/attack-speed/max-hp by this
+# much MORE than they already were (Player._level_up), the same
+# "multiply the existing multiplier" pattern the shop's own buffs use
+# (purchase_shop_item) -- so it compounds with itself AND with whatever
+# shop items have already been bought, rather than one flat bonus that
+# ignores everything else already stacked on top.
+LEVEL_ATTRIBUTE_BONUS_PER_LEVEL = 0.025   # +2.5% per level
+
+# xp_required_for_next_level(level) = round(LEVEL_XP_BASE *
+# LEVEL_XP_GROWTH ** (level - 1)) -- level 1->2 needs LEVEL_XP_BASE,
+# and every level after that needs LEVEL_XP_GROWTH times as much as the
+# level before it, so the climb gets steadily longer instead of a flat
+# amount every time.
+LEVEL_XP_BASE = 100
+LEVEL_XP_GROWTH = 1.12
+
+LEVEL_XP_PER_ENEMY_KILL = 20          # a regular enemy, minion, or boss-fight reinforcement
+LEVEL_XP_PER_GUARDIAN_KILL = 60       # a base's guardian ("tower")
+LEVEL_XP_PER_BOSS_KILL = 500
+
+# The XP progress strip -- bottom-center of the real window, same
+# "drawn on the real screen, not game_surface" reasoning as the souls
+# badge/shop panel, so it stays a fixed, crisp size and position no
+# matter which map's zoom is currently active.
+LEVEL_BAR_WIDTH = 420
+LEVEL_BAR_HEIGHT = 34
+LEVEL_BAR_BOTTOM_MARGIN = 24            # distance from the bottom edge of the screen
+LEVEL_BAR_BG_COLOR = (32, 10, 12, 222)        # matches the souls badge/shop panel's red
+LEVEL_BAR_FILL_COLOR = (200, 40, 40)
+LEVEL_BAR_BORDER_COLOR = (205, 60, 55)
+LEVEL_BAR_BORDER_WIDTH = 2
+LEVEL_BAR_BORDER_RADIUS = 12
+LEVEL_BAR_LABEL_FONT_SIZE = 22
+LEVEL_BAR_LABEL_COLOR = (255, 228, 222)
+LEVEL_BAR_MAX_TEXT = "MAX"
+LEVEL_BAR_MAX_COLOR = (255, 200, 90)          # gold-ish, stands out once there's no more to earn
 
 # --- Weapon pickups (step 20) ---
 PICKUP_SIZE = 10
@@ -514,6 +560,26 @@ BOSS_FIGHT_PROMPT_BG_ALPHA = 190
 BOSS_FIGHT_PROMPT_PADDING = 16          # space between the text and the box edge on every side
 BOSS_FIGHT_PROMPT_TOP_MARGIN = 78       # distance from the top of the screen -- below the
                                           # souls badge (step 53), which also sits top-center
+
+# --- Tower objective prompt (step 58) ---
+# A one-time hint shown for the first few seconds of a castle run,
+# telling the player what actually needs to die to unlock the shop/boss
+# fight -- just the towers (guardians), not every scattered minion.
+# Auto-hides itself once TOWER_INTRO_PROMPT_DURATION runs out (main.py's
+# own tower_prompt_timer counts it down), no keypress needed. A
+# different TOP_MARGIN than the boss-fight prompt above (which sits
+# lower) so the two never visually overlap in the rare case a player
+# somehow clears every tower within the first few seconds.
+TOWER_INTRO_PROMPT_TEXT_TEMPLATE = "Destroy all {count} towers"
+TOWER_INTRO_PROMPT_DURATION = 7.0        # seconds it stays on screen, then fades away on its own
+TOWER_INTRO_PROMPT_FADE_DURATION = 1.0   # the last this-many seconds ease the alpha down to 0
+TOWER_INTRO_PROMPT_FONT_SIZE = 32
+TOWER_INTRO_PROMPT_TEXT_COLOR = (255, 228, 222)
+TOWER_INTRO_PROMPT_BG_COLOR = (32, 10, 12)
+TOWER_INTRO_PROMPT_BG_ALPHA = 200
+TOWER_INTRO_PROMPT_BORDER_COLOR = (205, 60, 55)
+TOWER_INTRO_PROMPT_PADDING = 18
+TOWER_INTRO_PROMPT_TOP_MARGIN = 40
 
 # --- Arena backstory screen (step 48) ---
 # Shown once, right after pressing E on the "Press E: Boss Fight" prompt

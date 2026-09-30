@@ -26,7 +26,6 @@ def get_hud_panel_rect(screen):
     gap = settings.HUD_PANEL_ROW_GAP
     content_height = (
         settings.HEALTH_BAR_HEIGHT
-        + gap + settings.WEAPON_LABEL_FONT_SIZE
         + gap + settings.BASES_LABEL_FONT_SIZE
         + gap + settings.SCANNER_LABEL_FONT_SIZE
     )
@@ -39,13 +38,13 @@ def get_hud_panel_rect(screen):
 
 def draw_hud_panel(screen):
     """Step 54: a single rounded, red-tinted backdrop drawn BEHIND the
-    whole left-side stack (health bar, weapon label, bases label,
-    scanner label) -- before this they were just plain text floating
-    directly over the game world, which read as "looks bad" next to the
-    shop panel/souls badge's own rounded style. main.py calls this FIRST,
-    before draw_health_bar/draw_weapon_label/draw_bases_label/
-    draw_scanner_label -- none of those changed their own x/y math at
-    all, they just end up sitting visually on top of this panel now."""
+    whole left-side stack (health bar, bases label, scanner label) --
+    before this they were just plain text floating directly over the
+    game world, which read as "looks bad" next to the shop panel/souls
+    badge's own rounded style. main.py calls this FIRST, before
+    draw_health_bar/draw_bases_label/draw_scanner_label -- none of those
+    changed their own x/y math at all, they just end up sitting visually
+    on top of this panel now."""
     rect = get_hud_panel_rect(screen)
     panel_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     pygame.draw.rect(
@@ -77,25 +76,16 @@ def draw_health_bar(screen, player):
     pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, background_rect, settings.HEALTH_BAR_BORDER_WIDTH, border_radius=radius)
 
 
-def draw_weapon_label(screen, player):
-    """Shows which weapon is currently equipped, just below the health bar."""
-    font = pygame.font.SysFont(None, settings.WEAPON_LABEL_FONT_SIZE, bold=True)
-    text = f"Weapon: {player.equipped_weapon.name}  (press 1 / 2)"
+def draw_bases_label(screen, bases_remaining, total_bases):
+    """Step 26d (relabeled step 58): shows how many towers are still
+    standing, just below the health bar. A base now counts as
+    "remaining" purely by whether its own guardian (tower) is alive --
+    its scattered minions don't factor in at all anymore."""
+    font = pygame.font.SysFont(None, settings.BASES_LABEL_FONT_SIZE, bold=True)
+    text = f"Towers: {bases_remaining}/{total_bases}"
     surface = font.render(text, True, settings.HUD_TEXT_COLOR)
     x = settings.HUD_MARGIN
     y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + 8
-    screen.blit(surface, (x, y))
-
-
-def draw_bases_label(screen, bases_remaining, total_bases):
-    """Step 26d: shows how many bases are still standing, just below the
-    weapon label. A base counts as "remaining" until its guardian AND
-    every one of its regular enemies are dead."""
-    font = pygame.font.SysFont(None, settings.BASES_LABEL_FONT_SIZE, bold=True)
-    text = f"Bases: {bases_remaining}/{total_bases}"
-    surface = font.render(text, True, settings.HUD_TEXT_COLOR)
-    x = settings.HUD_MARGIN
-    y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + 8 + settings.WEAPON_LABEL_FONT_SIZE + 8
     screen.blit(surface, (x, y))
 
 
@@ -114,8 +104,6 @@ def draw_scanner_label(screen, scanner_cooldown):
     y = (
         settings.HUD_MARGIN
         + settings.HEALTH_BAR_HEIGHT
-        + 8
-        + settings.WEAPON_LABEL_FONT_SIZE
         + 8
         + settings.BASES_LABEL_FONT_SIZE
         + 8
@@ -181,6 +169,61 @@ def draw_souls_badge(screen, player):
     screen.blit(text_surface, text_rect)
 
 
+def get_level_bar_rect(screen):
+    """Where the XP progress strip sits -- bottom-center of the real
+    window. A separate function, same reasoning as every other "where
+    does this sit" helper in this file."""
+    width = settings.LEVEL_BAR_WIDTH
+    height = settings.LEVEL_BAR_HEIGHT
+    x = screen.get_width() // 2 - width // 2
+    y = screen.get_height() - settings.LEVEL_BAR_BOTTOM_MARGIN - height
+    return pygame.Rect(x, y, width, height)
+
+
+def draw_level_bar(screen, player):
+    """Step 55: the bottom-center XP strip -- fills up as kills feed
+    Player.add_experience toward the next level (main.py awards xp right
+    alongside souls for the same kill), and the player levels up on its
+    own (+2.5% to every attribute, compounding -- see Player._level_up)
+    the instant enough is banked, no separate action needed here. Once
+    PLAYER_MAX_LEVEL is reached, xp_required_for_next_level() returns
+    None and this just reads "MAX" instead of a fraction."""
+    rect = get_level_bar_rect(screen)
+    radius = settings.LEVEL_BAR_BORDER_RADIUS
+
+    bg_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pygame.draw.rect(bg_surface, settings.LEVEL_BAR_BG_COLOR, bg_surface.get_rect(), border_radius=radius)
+    screen.blit(bg_surface, rect.topleft)
+
+    xp_required = player.xp_required_for_next_level()
+    if xp_required is not None and xp_required > 0:
+        fraction = max(0.0, min(1.0, player.xp / xp_required))
+        fill_width = round(rect.width * fraction)
+        if fill_width > 0:
+            fill_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                fill_surface, settings.LEVEL_BAR_FILL_COLOR, pygame.Rect(0, 0, fill_width, rect.height),
+                border_radius=radius,
+            )
+            screen.blit(fill_surface, rect.topleft)
+
+    pygame.draw.rect(
+        screen, settings.LEVEL_BAR_BORDER_COLOR, rect,
+        settings.LEVEL_BAR_BORDER_WIDTH, border_radius=radius,
+    )
+
+    font = pygame.font.SysFont(None, settings.LEVEL_BAR_LABEL_FONT_SIZE, bold=True)
+    if xp_required is None:
+        text = f"LV. {player.level}  ({settings.LEVEL_BAR_MAX_TEXT})"
+        color = settings.LEVEL_BAR_MAX_COLOR
+    else:
+        text = f"LV. {player.level}   {int(player.xp)}/{xp_required} XP"
+        color = settings.LEVEL_BAR_LABEL_COLOR
+    text_surface = font.render(text, True, color)
+    text_rect = text_surface.get_rect(center=rect.center)
+    screen.blit(text_surface, text_rect)
+
+
 def draw_boss_fight_prompt(screen):
     """Step 47: shown once every base is cleared, instead of teleporting
     into the arena map right away -- lets the player finish looting/
@@ -200,6 +243,50 @@ def draw_boss_fight_prompt(screen):
     screen.blit(box, box_rect)
     pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, box_rect, 2)
 
+    text_rect = text_surface.get_rect(center=box_rect.center)
+    screen.blit(text_surface, text_rect)
+
+
+def draw_tower_intro_prompt(screen, tower_count, timer):
+    """Step 58: a one-time hint shown for the first few seconds of a
+    castle run -- tells the player the shop/boss fight unlock once every
+    TOWER (guardian) is dead, not every scattered minion, which is easy
+    to assume otherwise now that minions are purely optional loot/xp.
+    `timer` counts down from settings.TOWER_INTRO_PROMPT_DURATION
+    (main.py's own tower_prompt_timer, only ticking while the game is
+    actually running -- not paused, not game over, not already won).
+    Draws nothing once timer reaches 0, and eases its own alpha down to
+    0 over the last TOWER_INTRO_PROMPT_FADE_DURATION seconds instead of
+    just vanishing abruptly."""
+    if timer <= 0 or tower_count <= 0:
+        return
+
+    fade_duration = settings.TOWER_INTRO_PROMPT_FADE_DURATION
+    alpha_fraction = min(1.0, timer / fade_duration) if fade_duration > 0 else 1.0
+
+    text = settings.TOWER_INTRO_PROMPT_TEXT_TEMPLATE.format(count=tower_count)
+    font = pygame.font.SysFont(None, settings.TOWER_INTRO_PROMPT_FONT_SIZE, bold=True)
+    text_surface = font.render(text, True, settings.TOWER_INTRO_PROMPT_TEXT_COLOR)
+
+    padding = settings.TOWER_INTRO_PROMPT_PADDING
+    box_width = text_surface.get_width() + padding * 2
+    box_height = text_surface.get_height() + padding * 2
+    radius = 12
+
+    box = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    bg_alpha = round(settings.TOWER_INTRO_PROMPT_BG_ALPHA * alpha_fraction)
+    pygame.draw.rect(box, (*settings.TOWER_INTRO_PROMPT_BG_COLOR, bg_alpha), box.get_rect(), border_radius=radius)
+
+    border_alpha = round(255 * alpha_fraction)
+    pygame.draw.rect(
+        box, (*settings.TOWER_INTRO_PROMPT_BORDER_COLOR, border_alpha), box.get_rect(),
+        2, border_radius=radius,
+    )
+
+    box_rect = box.get_rect(midtop=(screen.get_width() // 2, settings.TOWER_INTRO_PROMPT_TOP_MARGIN))
+    screen.blit(box, box_rect)
+
+    text_surface.set_alpha(round(255 * alpha_fraction))
     text_rect = text_surface.get_rect(center=box_rect.center)
     screen.blit(text_surface, text_rect)
 

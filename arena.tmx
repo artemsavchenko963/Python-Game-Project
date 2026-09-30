@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="79" height="79" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="4">
+<map version="1.10" tiledversion="1.12.2" orientation="orthogonal" renderorder="right-down" width="79" height="79" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="34">
  <tileset firstgid="1" source="arena.tsx"/>
  <layer id="1" name="map" width="79" height="79">
   <data encoding="csv">
@@ -85,8 +85,95 @@
 </data>
  </layer>
  <objectgroup id="2" name="spawn" class="spawn">
-  <object id="1" x="632.667" y="617" width="0.333333"/>
-  <object id="2" x="632.667" y="616.333"/>
   <object id="3" name="spawn" type="spawn" x="632.667" y="616.333"/>
+ </objectgroup>
+ <objectgroup id="3" name="enemy">
+  <object id="4" type="enemy" x="273" y="254">
+   <point/>
+  </object>
+  <object id="5" type="enemy" x="155" y="354">
+   <point/>
+  </object>
+  <object id="6" type="enemy" x="413" y="425">
+   <point/>
+  </object>
+  <object id="7" type="enemy" x="453" y="232">
+   <point/>
+  </object>
+  <object id="8" type="enemy" x="673" y="379">
+   <point/>
+  </object>
+  <object id="9" type="enemy" x="684" y="225">
+   <point/>
+  </object>
+  <object id="10" type="enemy" x="892" y="262">
+   <point/>
+  </object>
+  <object id="11" type="enemy" x="881" y="498">
+   <point/>
+  </object>
+  <object id="12" type="enemy" x="1097" y="439">
+   <point/>
+  </object>
+  <object id="13" type="enemy" x="1094" y="247">
+   <point/>
+  </object>
+  <object id="14" type="enemy" x="1100" y="731">
+   <point/>
+  </object>
+  <object id="16" type="enemy" x="897" y="817">
+   <point/>
+  </object>
+  <object id="17" type="enemy" x="706" y="889">
+   <point/>
+  </object>
+  <object id="18" type="enemy" x="532" y="787">
+   <point/>
+  </object>
+  <object id="19" type="enemy" x="373" y="657">
+   <point/>
+  </object>
+  <object id="20" type="enemy" x="240" y="521">
+   <point/>
+  </object>
+  <object id="21" type="enemy" x="88" y="723">
+   <point/>
+  </object>
+  <object id="22" type="enemy" x="316" y="779">
+   <point/>
+  </object>
+  <object id="23" type="enemy" x="89" y="957">
+   <point/>
+  </object>
+  <object id="24" type="enemy" x="317" y="998">
+   <point/>
+  </object>
+  <object id="25" type="enemy" x="239" y="867">
+   <point/>
+  </object>
+  <object id="26" type="enemy" x="514" y="971">
+   <point/>
+  </object>
+  <object id="27" type="enemy" x="815" y="1042">
+   <point/>
+  </object>
+  <object id="28" type="enemy" x="1093" y="1031">
+   <point/>
+  </object>
+  <object id="29" type="enemy" x="988" y="926">
+   <point/>
+  </object>
+  <object id="30" type="enemy" x="1179" y="847">
+   <point/>
+  </object>
+  <object id="31" type="enemy" x="999" y="628">
+   <point/>
+  </object>
+  <object id="32" type="enemy" x="1040" y="106">
+   <point/>
+  </object>
+  <object id="33" type="enemy" x="154" y="109">
+   <point/>
+  </object>
  </objectgroup>
 </map>
