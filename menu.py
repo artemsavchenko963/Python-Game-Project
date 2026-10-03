@@ -17,7 +17,12 @@ same as closing it mid-game would.
 
 import pygame
 
+import i18n
 import settings
+import settings_menu
+
+
+SETTINGS_BUTTON = "__settings__"
 
 
 def _button_rects(screen):
@@ -25,7 +30,8 @@ def _button_rects(screen):
     centered on screen, in settings.DIFFICULTIES' own order (a plain
     dict preserves insertion order in Python, so this always comes out
     Easy -> Mid -> Hard -> Impossible)."""
-    names = list(settings.DIFFICULTIES.keys())
+    # The last entry is the Settings button (not a difficulty).
+    names = list(settings.DIFFICULTIES.keys()) + [SETTINGS_BUTTON]
     button_height = settings.MENU_BUTTON_HEIGHT
     gap = settings.MENU_BUTTON_GAP
     total_height = len(names) * button_height + (len(names) - 1) * gap
@@ -49,8 +55,6 @@ def run(screen, clock):
     button_font = pygame.font.SysFont(None, settings.MENU_BUTTON_FONT_SIZE)
 
     buttons = _button_rects(screen)
-    title_surface = title_font.render(settings.MENU_TITLE_TEXT, True, settings.MENU_TITLE_COLOR)
-    title_rect = title_surface.get_rect(center=(screen.get_width() // 2, buttons[0][1].top - 90))
 
     while True:
         for event in pygame.event.get():
@@ -59,11 +63,19 @@ def run(screen, clock):
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for name, rect in buttons:
                     if rect.collidepoint(event.pos):
-                        return name
+                        if name == SETTINGS_BUTTON:
+                            if not settings_menu.run(screen, clock):
+                                return None
+                        else:
+                            return name
 
         mouse_pos = pygame.mouse.get_pos()
 
+        # Text is rendered every frame (cheap) so a language change made in
+        # Settings shows up the moment you come back.
         screen.fill(settings.MENU_BG_COLOR)
+        title_surface = title_font.render(i18n.t("menu_title"), True, settings.MENU_TITLE_COLOR)
+        title_rect = title_surface.get_rect(center=(screen.get_width() // 2, buttons[0][1].top - 90))
         screen.blit(title_surface, title_rect)
 
         for name, rect in buttons:
@@ -72,7 +84,8 @@ def run(screen, clock):
             pygame.draw.rect(screen, color, rect)
             pygame.draw.rect(screen, settings.MENU_BUTTON_BORDER_COLOR, rect, 2)
 
-            text_surface = button_font.render(name, True, settings.MENU_BUTTON_TEXT_COLOR)
+            label = i18n.t("settings") if name == SETTINGS_BUTTON else i18n.t("diff_" + name)
+            text_surface = button_font.render(label, True, settings.MENU_BUTTON_TEXT_COLOR)
             text_rect = text_surface.get_rect(center=rect.center)
             screen.blit(text_surface, text_rect)
 
@@ -91,19 +104,19 @@ def run_instructions(screen, clock):
     hint_font = pygame.font.SysFont(None, settings.INSTRUCTIONS_HINT_FONT_SIZE)
 
     title_surface = title_font.render(
-        settings.INSTRUCTIONS_TITLE_TEXT, True, settings.INSTRUCTIONS_TITLE_COLOR
+        i18n.t("instr_title"), True, settings.INSTRUCTIONS_TITLE_COLOR
     )
 
     line_surfaces = [
         line_font.render(line, True, settings.INSTRUCTIONS_LINE_COLOR) if line else None
-        for line in settings.INSTRUCTIONS_LINES
+        for line in i18n.lines("instr_lines")
     ]
     # Blank lines (empty strings) render as None -- treated as a spacer
     # the height of a normal line, so paragraph breaks still take up room.
     line_height = line_font.get_height()
 
     hint_surface = hint_font.render(
-        settings.INSTRUCTIONS_HINT_TEXT, True, settings.INSTRUCTIONS_HINT_COLOR
+        i18n.t("instr_hint"), True, settings.INSTRUCTIONS_HINT_COLOR
     )
 
     center_x = screen.get_width() // 2
@@ -152,17 +165,17 @@ def run_arena_backstory(screen, clock):
     hint_font = pygame.font.SysFont(None, settings.ARENA_BACKSTORY_HINT_FONT_SIZE)
 
     title_surface = title_font.render(
-        settings.ARENA_BACKSTORY_TITLE_TEXT, True, settings.ARENA_BACKSTORY_TITLE_COLOR
+        i18n.t("backstory_title"), True, settings.ARENA_BACKSTORY_TITLE_COLOR
     )
 
     line_surfaces = [
         line_font.render(line, True, settings.ARENA_BACKSTORY_LINE_COLOR) if line else None
-        for line in settings.ARENA_BACKSTORY_LINES
+        for line in i18n.lines("backstory_lines")
     ]
     line_height = line_font.get_height()
 
     hint_surface = hint_font.render(
-        settings.ARENA_BACKSTORY_HINT_TEXT, True, settings.ARENA_BACKSTORY_HINT_COLOR
+        i18n.t("backstory_hint"), True, settings.ARENA_BACKSTORY_HINT_COLOR
     )
 
     center_x = screen.get_width() // 2

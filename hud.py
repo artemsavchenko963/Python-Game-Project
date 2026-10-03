@@ -12,6 +12,7 @@ directly in screen coordinates.
 
 import pygame
 
+import i18n
 import settings
 
 
@@ -55,7 +56,12 @@ def draw_hud_panel(screen):
     pygame.draw.rect(screen, settings.HUD_PANEL_BORDER_COLOR, rect, 2, border_radius=settings.HUD_PANEL_BORDER_RADIUS)
 
 
-def draw_health_bar(screen, player):
+def draw_level_bar(screen, player):
+    """Step 60: the XP/level strip now lives in the top-left panel slot
+    the health bar used to have (the two swapped places). Drawn on
+    game_surface like the rest of that panel. Fills as kills feed
+    Player.add_experience toward the next level; reads "MAX" once
+    PLAYER_MAX_LEVEL is reached (xp_required_for_next_level() is None)."""
     x = settings.HUD_MARGIN
     y = settings.HUD_MARGIN
     width = settings.HEALTH_BAR_WIDTH
@@ -65,15 +71,29 @@ def draw_health_bar(screen, player):
     background_rect = pygame.Rect(x, y, width, height)
     pygame.draw.rect(screen, settings.HEALTH_BAR_BG_COLOR, background_rect, border_radius=radius)
 
-    health_fraction = player.health / player.max_health
-    fill_width = max(0, int(width * health_fraction))
-    if fill_width > 0:
-        fill_rect = pygame.Rect(x, y, fill_width, height)
-        pygame.draw.rect(screen, settings.HEALTH_BAR_FILL_COLOR, fill_rect, border_radius=radius)
+    xp_required = player.xp_required_for_next_level()
+    if xp_required is not None and xp_required > 0:
+        fraction = max(0.0, min(1.0, player.xp / xp_required))
+        fill_width = int(width * fraction)
+        if fill_width > 0:
+            pygame.draw.rect(
+                screen, settings.LEVEL_BAR_FILL_COLOR, pygame.Rect(x, y, fill_width, height),
+                border_radius=radius,
+            )
+    pygame.draw.rect(
+        screen, settings.HEALTH_BAR_BORDER_COLOR, background_rect,
+        settings.HEALTH_BAR_BORDER_WIDTH, border_radius=radius,
+    )
 
-    # Border drawn last, on top, so it frames both the background and the
-    # fill cleanly regardless of how much health is left.
-    pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, background_rect, settings.HEALTH_BAR_BORDER_WIDTH, border_radius=radius)
+    font = pygame.font.SysFont(None, settings.LEVEL_PANEL_LABEL_FONT_SIZE, bold=True)
+    if xp_required is None:
+        text = f"{i18n.t('level_short')} {player.level}  ({i18n.t('max')})"
+        color = settings.LEVEL_BAR_MAX_COLOR
+    else:
+        text = f"{i18n.t('level_short')} {player.level}   {int(player.xp)}/{xp_required}"
+        color = settings.LEVEL_BAR_LABEL_COLOR
+    text_surface = font.render(text, True, color)
+    screen.blit(text_surface, text_surface.get_rect(center=background_rect.center))
 
 
 def draw_bases_label(screen, bases_remaining, total_bases):
@@ -82,10 +102,10 @@ def draw_bases_label(screen, bases_remaining, total_bases):
     "remaining" purely by whether its own guardian (tower) is alive --
     its scattered minions don't factor in at all anymore."""
     font = pygame.font.SysFont(None, settings.BASES_LABEL_FONT_SIZE, bold=True)
-    text = f"Towers: {bases_remaining}/{total_bases}"
+    text = i18n.t("towers", remaining=bases_remaining, total=total_bases)
     surface = font.render(text, True, settings.HUD_TEXT_COLOR)
     x = settings.HUD_MARGIN
-    y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + 8
+    y = settings.HUD_MARGIN + settings.HEALTH_BAR_HEIGHT + settings.ui(8)
     screen.blit(surface, (x, y))
 
 
@@ -96,9 +116,9 @@ def draw_scanner_label(screen, scanner_cooldown):
     happen."""
     font = pygame.font.SysFont(None, settings.SCANNER_LABEL_FONT_SIZE, bold=True)
     if scanner_cooldown <= 0:
-        text = "Scanner: Ready (E)   Defuse (F)"
+        text = i18n.t("scanner_ready")
     else:
-        text = f"Scanner: {scanner_cooldown:.1f}s   Defuse (F)"
+        text = i18n.t("scanner_cooldown", seconds=f"{scanner_cooldown:.1f}")
     surface = font.render(text, True, settings.HUD_TEXT_COLOR)
     x = settings.HUD_MARGIN
     y = (
@@ -160,19 +180,19 @@ def draw_souls_badge(screen, player):
     pygame.draw.rect(screen, settings.SOULS_BADGE_BORDER_COLOR, rect, 2, border_radius=radius)
 
     icon_radius = settings.SOULS_ICON_RADIUS
-    icon_center = (rect.x + 16 + icon_radius, rect.centery)
+    icon_center = (rect.x + settings.ui(16) + icon_radius, rect.centery)
     _draw_soul_orb(screen, icon_center, icon_radius)
 
     font = pygame.font.SysFont(None, settings.SOULS_BADGE_FONT_SIZE, bold=True)
     text_surface = font.render(str(player.souls), True, settings.SOULS_BADGE_TEXT_COLOR)
-    text_rect = text_surface.get_rect(midleft=(icon_center[0] + icon_radius + 10, rect.centery))
+    text_rect = text_surface.get_rect(midleft=(icon_center[0] + icon_radius + settings.ui(10), rect.centery))
     screen.blit(text_surface, text_rect)
 
 
-def get_level_bar_rect(screen):
-    """Where the XP progress strip sits -- bottom-center of the real
-    window. A separate function, same reasoning as every other "where
-    does this sit" helper in this file."""
+def get_health_bar_rect(screen):
+    """Where the player's health bar sits -- bottom-center of the real
+    window (step 60: swapped with the level bar, which took over the
+    old top-left health bar slot)."""
     width = settings.LEVEL_BAR_WIDTH
     height = settings.LEVEL_BAR_HEIGHT
     x = screen.get_width() // 2 - width // 2
@@ -180,32 +200,26 @@ def get_level_bar_rect(screen):
     return pygame.Rect(x, y, width, height)
 
 
-def draw_level_bar(screen, player):
-    """Step 55: the bottom-center XP strip -- fills up as kills feed
-    Player.add_experience toward the next level (main.py awards xp right
-    alongside souls for the same kill), and the player levels up on its
-    own (+2.5% to every attribute, compounding -- see Player._level_up)
-    the instant enough is banked, no separate action needed here. Once
-    PLAYER_MAX_LEVEL is reached, xp_required_for_next_level() returns
-    None and this just reads "MAX" instead of a fraction."""
-    rect = get_level_bar_rect(screen)
+def draw_health_bar(screen, player):
+    """Step 60: the player's health bar, bottom-center of the real
+    screen (crisp, fixed size regardless of zoom), with an "HP cur/max"
+    label."""
+    rect = get_health_bar_rect(screen)
     radius = settings.LEVEL_BAR_BORDER_RADIUS
 
     bg_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     pygame.draw.rect(bg_surface, settings.LEVEL_BAR_BG_COLOR, bg_surface.get_rect(), border_radius=radius)
     screen.blit(bg_surface, rect.topleft)
 
-    xp_required = player.xp_required_for_next_level()
-    if xp_required is not None and xp_required > 0:
-        fraction = max(0.0, min(1.0, player.xp / xp_required))
-        fill_width = round(rect.width * fraction)
-        if fill_width > 0:
-            fill_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                fill_surface, settings.LEVEL_BAR_FILL_COLOR, pygame.Rect(0, 0, fill_width, rect.height),
-                border_radius=radius,
-            )
-            screen.blit(fill_surface, rect.topleft)
+    fraction = max(0.0, min(1.0, player.health / player.max_health)) if player.max_health > 0 else 0.0
+    fill_width = round(rect.width * fraction)
+    if fill_width > 0:
+        fill_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            fill_surface, settings.HEALTH_BAR_FILL_COLOR, pygame.Rect(0, 0, fill_width, rect.height),
+            border_radius=radius,
+        )
+        screen.blit(fill_surface, rect.topleft)
 
     pygame.draw.rect(
         screen, settings.LEVEL_BAR_BORDER_COLOR, rect,
@@ -213,15 +227,9 @@ def draw_level_bar(screen, player):
     )
 
     font = pygame.font.SysFont(None, settings.LEVEL_BAR_LABEL_FONT_SIZE, bold=True)
-    if xp_required is None:
-        text = f"LV. {player.level}  ({settings.LEVEL_BAR_MAX_TEXT})"
-        color = settings.LEVEL_BAR_MAX_COLOR
-    else:
-        text = f"LV. {player.level}   {int(player.xp)}/{xp_required} XP"
-        color = settings.LEVEL_BAR_LABEL_COLOR
-    text_surface = font.render(text, True, color)
-    text_rect = text_surface.get_rect(center=rect.center)
-    screen.blit(text_surface, text_rect)
+    text = f"{i18n.t('hp')}  {int(round(player.health))}/{int(round(player.max_health))}"
+    text_surface = font.render(text, True, settings.LEVEL_BAR_LABEL_COLOR)
+    screen.blit(text_surface, text_surface.get_rect(center=rect.center))
 
 
 def draw_boss_fight_prompt(screen):
@@ -231,7 +239,7 @@ def draw_boss_fight_prompt(screen):
     terms by pressing E. A dark box behind the text keeps it readable
     over any part of the map/fog it happens to sit on top of."""
     font = pygame.font.SysFont(None, settings.BOSS_FIGHT_PROMPT_FONT_SIZE)
-    text_surface = font.render(settings.BOSS_FIGHT_PROMPT_TEXT, True, settings.BOSS_FIGHT_PROMPT_TEXT_COLOR)
+    text_surface = font.render(i18n.t("boss_prompt"), True, settings.BOSS_FIGHT_PROMPT_TEXT_COLOR)
 
     padding = settings.BOSS_FIGHT_PROMPT_PADDING
     box_width = text_surface.get_width() + padding * 2
@@ -264,7 +272,7 @@ def draw_tower_intro_prompt(screen, tower_count, timer):
     fade_duration = settings.TOWER_INTRO_PROMPT_FADE_DURATION
     alpha_fraction = min(1.0, timer / fade_duration) if fade_duration > 0 else 1.0
 
-    text = settings.TOWER_INTRO_PROMPT_TEXT_TEMPLATE.format(count=tower_count)
+    text = i18n.t("tower_intro", count=tower_count)
     font = pygame.font.SysFont(None, settings.TOWER_INTRO_PROMPT_FONT_SIZE, bold=True)
     text_surface = font.render(text, True, settings.TOWER_INTRO_PROMPT_TEXT_COLOR)
 
@@ -337,13 +345,13 @@ def draw_boss_health_bar(screen, boss):
 
     label_font = pygame.font.SysFont(None, settings.BOSS_HEALTH_BAR_LABEL_FONT_SIZE, bold=True)
     if boss.enraged:
-        label_text = settings.BOSS_HEALTH_BAR_RAGE_LABEL_TEXT
+        label_text = i18n.t("boss_rage")
         label_color = settings.BOSS_HEALTH_BAR_RAGE_LABEL_COLOR
     else:
-        label_text = settings.BOSS_HEALTH_BAR_LABEL_TEXT
+        label_text = i18n.t("boss_label")
         label_color = settings.BOSS_HEALTH_BAR_LABEL_COLOR
     label_surface = label_font.render(label_text, True, label_color)
-    label_rect = label_surface.get_rect(midbottom=(rect.centerx, rect.top - 4))
+    label_rect = label_surface.get_rect(midbottom=(rect.centerx, rect.top - settings.ui(4)))
     screen.blit(label_surface, label_rect)
 
 
@@ -413,11 +421,11 @@ def draw_shop(screen, player):
 
     padding = settings.SHOP_PANEL_PADDING
     title_font = pygame.font.SysFont(None, settings.SHOP_TITLE_FONT_SIZE, bold=True)
-    title_surface = title_font.render(settings.SHOP_TITLE_TEXT, True, settings.SHOP_TITLE_COLOR)
-    title_pos = (panel_rect.x + padding, panel_rect.y + padding - 2)
+    title_surface = title_font.render(i18n.t("shop_title"), True, settings.SHOP_TITLE_COLOR)
+    title_pos = (panel_rect.x + padding, panel_rect.y + padding - settings.ui(2))
     screen.blit(title_surface, title_pos)
 
-    divider_y = title_pos[1] + title_surface.get_height() + 6
+    divider_y = title_pos[1] + title_surface.get_height() + settings.ui(6)
     pygame.draw.line(
         screen, settings.SHOP_DIVIDER_COLOR,
         (panel_rect.x + padding, divider_y),
@@ -426,7 +434,7 @@ def draw_shop(screen, player):
     )
 
     name_font = pygame.font.SysFont(None, settings.SHOP_ITEM_FONT_SIZE, bold=True)
-    cost_font = pygame.font.SysFont(None, settings.SHOP_ITEM_FONT_SIZE - 2)
+    cost_font = pygame.font.SysFont(None, max(settings.UI_MIN_FONT_SIZE, settings.SHOP_ITEM_FONT_SIZE - 1))
     button_radius = settings.SHOP_BUTTON_BORDER_RADIUS
     accent_width = settings.SHOP_BUTTON_ACCENT_WIDTH
     mouse_pos = pygame.mouse.get_pos()
@@ -456,12 +464,12 @@ def draw_shop(screen, player):
         pygame.draw.rect(screen, settings.SHOP_BUTTON_BORDER_COLOR, rect, 2, border_radius=button_radius)
 
         accent_color = settings.SHOP_ITEM_COLORS.get(item["key"], settings.SHOP_TITLE_COLOR)
-        accent_rect = pygame.Rect(rect.x + 6, rect.y + 6, accent_width, rect.height - 12)
+        accent_rect = pygame.Rect(rect.x + settings.ui(6), rect.y + settings.ui(6), accent_width, rect.height - settings.ui(12))
         pygame.draw.rect(screen, accent_color, accent_rect, border_radius=accent_width // 2)
 
         if purchased:
             label_surface = name_font.render(
-                settings.SHOP_BUTTON_PURCHASED_TEXT, True, settings.SHOP_BUTTON_PURCHASED_TEXT_COLOR
+                i18n.t("shop_owned"), True, settings.SHOP_BUTTON_PURCHASED_TEXT_COLOR
             )
             label_rect = label_surface.get_rect(center=rect.center)
             screen.blit(label_surface, label_rect)
@@ -469,15 +477,15 @@ def draw_shop(screen, player):
 
         text_color = settings.SHOP_BUTTON_TEXT_COLOR if can_afford else settings.SHOP_BUTTON_DISABLED_TEXT_COLOR
 
-        name_surface = name_font.render(item["name"], True, text_color)
-        name_pos = (accent_rect.right + 12, rect.centery - name_surface.get_height() // 2)
+        name_surface = name_font.render(i18n.t("shop_" + item["key"]), True, text_color)
+        name_pos = (accent_rect.right + settings.ui(12), rect.centery - name_surface.get_height() // 2)
         screen.blit(name_surface, name_pos)
 
         cost_surface = cost_font.render(str(item["cost"]), True, text_color)
         cost_rect = cost_surface.get_rect()
         cost_rect.midright = (rect.right - padding, rect.centery)
         icon_radius = settings.SHOP_COST_ICON_RADIUS
-        icon_center = (cost_rect.left - icon_radius - 6, rect.centery)
+        icon_center = (cost_rect.left - icon_radius - settings.ui(6), rect.centery)
         _draw_soul_orb(screen, icon_center, icon_radius, glow=False)
         screen.blit(cost_surface, cost_rect)
 
@@ -498,12 +506,12 @@ def draw_game_over(screen):
     center_y = screen.get_height() // 2
 
     title_font = pygame.font.SysFont(None, settings.GAME_OVER_TITLE_FONT_SIZE)
-    title_surface = title_font.render("YOU DIED", True, settings.GAME_OVER_TITLE_COLOR)
+    title_surface = title_font.render(i18n.t("game_over_title"), True, settings.GAME_OVER_TITLE_COLOR)
     title_rect = title_surface.get_rect(center=(center_x, center_y - 20))
     screen.blit(title_surface, title_rect)
 
     hint_font = pygame.font.SysFont(None, settings.GAME_OVER_HINT_FONT_SIZE)
-    hint_surface = hint_font.render("Press R to restart", True, settings.HUD_TEXT_COLOR)
+    hint_surface = hint_font.render(i18n.t("game_over_hint"), True, settings.HUD_TEXT_COLOR)
     hint_rect = hint_surface.get_rect(center=(center_x, center_y + 40))
     screen.blit(hint_surface, hint_rect)
 
@@ -521,12 +529,12 @@ def draw_victory(screen):
     center_y = screen.get_height() // 2
 
     title_font = pygame.font.SysFont(None, settings.GAME_OVER_TITLE_FONT_SIZE)
-    title_surface = title_font.render("VICTORY", True, settings.VICTORY_TITLE_COLOR)
+    title_surface = title_font.render(i18n.t("victory_title"), True, settings.VICTORY_TITLE_COLOR)
     title_rect = title_surface.get_rect(center=(center_x, center_y - 20))
     screen.blit(title_surface, title_rect)
 
     hint_font = pygame.font.SysFont(None, settings.GAME_OVER_HINT_FONT_SIZE)
-    hint_surface = hint_font.render("All bases cleared -- press R to play again", True, settings.HUD_TEXT_COLOR)
+    hint_surface = hint_font.render(i18n.t("victory_hint"), True, settings.HUD_TEXT_COLOR)
     hint_rect = hint_surface.get_rect(center=(center_x, center_y + 40))
     screen.blit(hint_surface, hint_rect)
 
@@ -562,12 +570,129 @@ def draw_pause_button(screen):
     pygame.draw.rect(screen, settings.PAUSE_BUTTON_BAR_COLOR, (right_bar_x, bar_top, bar_width, bar_height))
 
 
+def get_stats_button_rect(screen):
+    """Step 60: the stats button sits just left of the pause button,
+    same size, top-right corner of the real window."""
+    pause_rect = get_pause_button_rect(screen)
+    size = settings.PAUSE_BUTTON_SIZE
+    return pygame.Rect(pause_rect.left - settings.STATS_BUTTON_GAP - size, pause_rect.top, size, size)
+
+
+def draw_stats_button(screen, active=False):
+    """A small square button with a bar-chart icon -- clicking it
+    toggles the stats panel (see draw_stats_panel)."""
+    rect = get_stats_button_rect(screen)
+    color = settings.STATS_BUTTON_ACTIVE_COLOR if active else settings.PAUSE_BUTTON_COLOR
+    pygame.draw.rect(screen, color, rect)
+    pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, rect, 2)
+
+    # Three bars of different heights -- a tiny bar chart.
+    bar_width = max(3, rect.width // 7)
+    gap = max(2, rect.width // 10)
+    total_width = bar_width * 3 + gap * 2
+    left = rect.centerx - total_width // 2
+    base_y = rect.bottom - 10
+    for i, bar_height in enumerate((rect.height // 3, rect.height // 2 + 2, rect.height * 2 // 3)):
+        pygame.draw.rect(
+            screen, settings.PAUSE_BUTTON_BAR_COLOR,
+            (left + i * (bar_width + gap), base_y - bar_height, bar_width, bar_height),
+        )
+
+
+def _stat_rows(player):
+    """(label, value-string) for every row of the stats panel. Damage /
+    attack speed / move speed are the REAL numbers the game uses
+    (base * every multiplier from levels and shop buffs), with the total
+    bonus over base shown in brackets when there is one."""
+    weapon = player.equipped_weapon
+
+    def bonus(multiplier):
+        percent = round((multiplier - 1) * 100)
+        return f"  (+{percent}%)" if percent > 0 else ""
+
+    damage = weapon.damage * player.damage_multiplier
+    shots_per_second = player.attack_speed_multiplier / weapon.fire_interval
+    move_speed = settings.PLAYER_SPEED * player.speed_multiplier
+    xp_required = player.xp_required_for_next_level()
+    if xp_required is None:
+        level_text = f"{player.level} ({i18n.t('max')})"
+    else:
+        level_text = f"{player.level}  ({int(player.xp)}/{xp_required} XP)"
+
+    return [
+        (i18n.t("stat_level"), level_text),
+        (i18n.t("stat_health"), f"{int(round(player.health))} / {int(round(player.max_health))}"),
+        (i18n.t("stat_damage"), f"{damage:.1f}{bonus(player.damage_multiplier)}"),
+        (i18n.t("stat_attack_speed"), f"{shots_per_second:.1f}{i18n.t('per_second')}{bonus(player.attack_speed_multiplier)}"),
+        (i18n.t("stat_move_speed"), f"{move_speed:.0f}{bonus(player.speed_multiplier)}"),
+        (i18n.t("stat_souls"), str(player.souls)),
+    ]
+
+
+def get_stats_panel_rect(screen):
+    """Panel hangs just below the stats/pause buttons, right-aligned to
+    the pause button's right edge."""
+    pause_rect = get_pause_button_rect(screen)
+    padding = settings.STATS_PANEL_PADDING
+    height = padding * 2 + settings.STATS_PANEL_TITLE_HEIGHT + settings.STATS_PANEL_ROW_COUNT * settings.STATS_PANEL_ROW_HEIGHT
+    width = settings.STATS_PANEL_WIDTH
+    return pygame.Rect(pause_rect.right - width, pause_rect.bottom + settings.ui(10), width, height)
+
+
+def draw_stats_panel(screen, player):
+    """Step 60: every player stat in one place -- level/xp, health,
+    damage, attack speed, move speed, equipped weapon, souls. Shown
+    while the stats button is toggled on; drawn on the real screen."""
+    rect = get_stats_panel_rect(screen)
+    radius = settings.STATS_PANEL_BORDER_RADIUS
+    padding = settings.STATS_PANEL_PADDING
+
+    panel = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pygame.draw.rect(panel, settings.STATS_PANEL_BG_COLOR, panel.get_rect(), border_radius=radius)
+    screen.blit(panel, rect.topleft)
+    pygame.draw.rect(screen, settings.STATS_PANEL_BORDER_COLOR, rect, 2, border_radius=radius)
+
+    title_font = pygame.font.SysFont(None, settings.STATS_PANEL_TITLE_FONT_SIZE, bold=True)
+    title = title_font.render(i18n.t("stats_title"), True, settings.STATS_PANEL_TITLE_COLOR)
+    screen.blit(title, (rect.x + padding, rect.y + padding))
+    divider_y = rect.y + padding + settings.STATS_PANEL_TITLE_HEIGHT - 6
+    pygame.draw.line(
+        screen, settings.STATS_PANEL_DIVIDER_COLOR,
+        (rect.x + padding, divider_y), (rect.right - padding, divider_y), 2,
+    )
+
+    label_font = pygame.font.SysFont(None, settings.STATS_PANEL_FONT_SIZE)
+    value_font = pygame.font.SysFont(None, settings.STATS_PANEL_FONT_SIZE, bold=True)
+    y = rect.y + padding + settings.STATS_PANEL_TITLE_HEIGHT
+    for label, value in _stat_rows(player):
+        label_surface = label_font.render(label, True, settings.STATS_PANEL_LABEL_COLOR)
+        value_surface = value_font.render(value, True, settings.STATS_PANEL_VALUE_COLOR)
+        row_mid = y + settings.STATS_PANEL_ROW_HEIGHT // 2
+        screen.blit(label_surface, label_surface.get_rect(midleft=(rect.x + padding, row_mid)))
+        screen.blit(value_surface, value_surface.get_rect(midright=(rect.right - padding, row_mid)))
+        y += settings.STATS_PANEL_ROW_HEIGHT
+
+
+def get_continue_button_rect(screen):
+    """The pause overlay's Continue button -- top of the stack."""
+    rect = pygame.Rect(0, 0, settings.PAUSE_LEAVE_BUTTON_WIDTH, settings.PAUSE_LEAVE_BUTTON_HEIGHT)
+    rect.center = (screen.get_width() // 2, screen.get_height() // 2 + 30)
+    return rect
+
+
+def get_settings_button_rect(screen):
+    """Sits just below Continue."""
+    rect = get_continue_button_rect(screen)
+    rect.y += settings.PAUSE_LEAVE_BUTTON_HEIGHT + settings.ui(18)
+    return rect
+
+
 def get_leave_button_rect(screen):
     """Same idea as get_pause_button_rect: main.py needs this exact rect
     to test clicks, so it lives in its own function rather than only
-    inside draw_pause_overlay."""
-    rect = pygame.Rect(0, 0, settings.PAUSE_LEAVE_BUTTON_WIDTH, settings.PAUSE_LEAVE_BUTTON_HEIGHT)
-    rect.center = (screen.get_width() // 2, screen.get_height() // 2 + 30)
+    inside draw_pause_overlay. Bottom of the stack (Continue, Settings, Leave)."""
+    rect = get_settings_button_rect(screen)
+    rect.y += settings.PAUSE_LEAVE_BUTTON_HEIGHT + settings.ui(18)
     return rect
 
 
@@ -583,15 +708,17 @@ def draw_pause_overlay(screen):
     center_y = screen.get_height() // 2
 
     title_font = pygame.font.SysFont(None, settings.PAUSE_TITLE_FONT_SIZE)
-    title_surface = title_font.render("PAUSED", True, settings.HUD_TEXT_COLOR)
+    title_surface = title_font.render(i18n.t("paused"), True, settings.HUD_TEXT_COLOR)
     title_rect = title_surface.get_rect(center=(center_x, center_y - 60))
     screen.blit(title_surface, title_rect)
 
-    button_rect = get_leave_button_rect(screen)
-    pygame.draw.rect(screen, settings.PAUSE_LEAVE_BUTTON_COLOR, button_rect)
-    pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, button_rect, 2)
-
     button_font = pygame.font.SysFont(None, settings.PAUSE_LEAVE_BUTTON_FONT_SIZE)
-    button_text = button_font.render("Leave", True, settings.PAUSE_LEAVE_BUTTON_TEXT_COLOR)
-    text_rect = button_text.get_rect(center=button_rect.center)
-    screen.blit(button_text, text_rect)
+    for button_rect, label in (
+        (get_continue_button_rect(screen), i18n.t("continue")),
+        (get_settings_button_rect(screen), i18n.t("settings")),
+        (get_leave_button_rect(screen), i18n.t("leave")),
+    ):
+        pygame.draw.rect(screen, settings.PAUSE_LEAVE_BUTTON_COLOR, button_rect)
+        pygame.draw.rect(screen, settings.HEALTH_BAR_BORDER_COLOR, button_rect, 2)
+        button_text = button_font.render(label, True, settings.PAUSE_LEAVE_BUTTON_TEXT_COLOR)
+        screen.blit(button_text, button_text.get_rect(center=button_rect.center))

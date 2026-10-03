@@ -69,7 +69,7 @@ ENEMY_MAX_HEALTH = 30
 ENEMY_SPEED = 120 / 3                 # was 120 -- step 24 made it three times slower too
 
 # --- Player health (step 16) ---
-PLAYER_MAX_HEALTH = 100
+PLAYER_MAX_HEALTH = 400
 ENEMY_TOUCH_DAMAGE = 10              # damage taken per hit from touching a REGULAR enemy
                                        # (guardians use GUARDIAN_TOUCH_DAMAGE instead, step 26)
 PLAYER_INVULNERABLE_DURATION = 1.0   # seconds of safety after being hit, so contact
@@ -80,8 +80,8 @@ PLAYER_INVULNERABLE_COLOR = (255, 255, 255)  # flashes white while briefly invul
 HUD_MARGIN = 20                      # distance from the corner of the window
 HEALTH_BAR_WIDTH = 200
 HEALTH_BAR_HEIGHT = 24
-HEALTH_BAR_BG_COLOR = (50, 20, 20)      # "empty" portion
-HEALTH_BAR_FILL_COLOR = (200, 40, 40)   # "remaining health" portion
+HEALTH_BAR_BG_COLOR = (28, 28, 30)      # "empty" portion
+HEALTH_BAR_FILL_COLOR = (170, 170, 174)   # "remaining health" portion
 HEALTH_BAR_BORDER_COLOR = (10, 10, 10)
 HEALTH_BAR_BORDER_WIDTH = 2
 HEALTH_BAR_BORDER_RADIUS = 6            # step 54: rounded corners, matches the newer HUD look
@@ -96,8 +96,8 @@ HEALTH_BAR_BORDER_RADIUS = 6            # step 54: rounded corners, matches the 
 HUD_PANEL_WIDTH = 320
 HUD_PANEL_PADDING = 14
 HUD_PANEL_ROW_GAP = 8
-HUD_PANEL_BG_COLOR = (20, 8, 10, 205)
-HUD_PANEL_BORDER_COLOR = (130, 45, 45)
+HUD_PANEL_BG_COLOR = (10, 10, 12, 210)
+HUD_PANEL_BORDER_COLOR = (92, 92, 96)
 HUD_PANEL_BORDER_RADIUS = 14
 
 # --- Game over (step 18) ---
@@ -134,17 +134,17 @@ SOULS_BADGE_HEIGHT = 44
 SOULS_BADGE_TOP_MARGIN = 20            # distance from the top of the screen
 # Step 54: recolored from the original indigo/blue to a deep blood-red --
 # matches the game's existing red/black look better than "arcane purple" did.
-SOULS_BADGE_BG_COLOR = (32, 10, 12, 222)     # RGBA, deep blood-red
-SOULS_BADGE_BORDER_COLOR = (205, 60, 55)
+SOULS_BADGE_BG_COLOR = (14, 14, 16, 222)     # RGBA, deep blood-red
+SOULS_BADGE_BORDER_COLOR = (120, 120, 124)
 SOULS_BADGE_FONT_SIZE = 26
-SOULS_BADGE_TEXT_COLOR = (255, 228, 222)
+SOULS_BADGE_TEXT_COLOR = (205, 205, 208)
 
 # The little glowing "soul" icon drawn to the left of the number --
 # hud.py's _draw_soul_orb (a solid core plus a soft halo), not an emoji
 # or an image file, so it always renders crisply at any size.
 SOULS_ICON_RADIUS = 9
-SOULS_ICON_COLOR = (215, 35, 35)             # step 54: red, was pale blue
-SOULS_ICON_CORE_COLOR = (255, 205, 195)
+SOULS_ICON_COLOR = (185, 185, 189)             # step 54: red, was pale blue
+SOULS_ICON_CORE_COLOR = (245, 245, 248)
 
 # --- Leveling (step 55) ---
 # Every kill (a regular enemy/minion, a guardian/"tower", a boss-fight
@@ -184,15 +184,16 @@ LEVEL_XP_PER_BOSS_KILL = 500
 LEVEL_BAR_WIDTH = 420
 LEVEL_BAR_HEIGHT = 34
 LEVEL_BAR_BOTTOM_MARGIN = 24            # distance from the bottom edge of the screen
-LEVEL_BAR_BG_COLOR = (32, 10, 12, 222)        # matches the souls badge/shop panel's red
-LEVEL_BAR_FILL_COLOR = (200, 40, 40)
-LEVEL_BAR_BORDER_COLOR = (205, 60, 55)
+LEVEL_BAR_BG_COLOR = (14, 14, 16, 222)        # matches the souls badge/shop panel's red
+LEVEL_BAR_FILL_COLOR = (150, 150, 155)       # step 60: amber, so it reads differently from the red HP bar
+LEVEL_BAR_BORDER_COLOR = (120, 120, 124)
 LEVEL_BAR_BORDER_WIDTH = 2
 LEVEL_BAR_BORDER_RADIUS = 12
 LEVEL_BAR_LABEL_FONT_SIZE = 22
-LEVEL_BAR_LABEL_COLOR = (255, 228, 222)
+LEVEL_PANEL_LABEL_FONT_SIZE = 18             # step 60: level strip now lives in the small top-left panel
+LEVEL_BAR_LABEL_COLOR = (205, 205, 208)
 LEVEL_BAR_MAX_TEXT = "MAX"
-LEVEL_BAR_MAX_COLOR = (255, 200, 90)          # gold-ish, stands out once there's no more to earn
+LEVEL_BAR_MAX_COLOR = (215, 215, 220)          # gold-ish, stands out once there's no more to earn
 
 # --- Weapon pickups (step 20) ---
 PICKUP_SIZE = 10
@@ -245,7 +246,7 @@ BOSS_SPAWN_OFFSET = 300
 # Lowered from 2 to 1.5 (step 33) so more of the map is visible around
 # the player -- can be any number, including fractions like this one,
 # not just whole numbers.
-ZOOM = 1.5
+ZOOM = 2.6
 
 # --- Wall collision (step 23) ---
 # room.py builds wall_rects by looking for tiles tagged with a custom
@@ -261,7 +262,7 @@ SOLID_TILE_PROPERTY = "solid"
 # what ZOOM is set to.
 PAUSE_BUTTON_SIZE = 44
 PAUSE_BUTTON_MARGIN = 20             # distance from the top-right corner
-PAUSE_BUTTON_COLOR = (40, 40, 50)
+PAUSE_BUTTON_COLOR = (28, 28, 31)
 PAUSE_BUTTON_BAR_COLOR = (230, 230, 230)   # the two little bars of the "II" icon
 
 PAUSE_OVERLAY_ALPHA = 170
@@ -269,7 +270,7 @@ PAUSE_TITLE_FONT_SIZE = 56
 
 PAUSE_LEAVE_BUTTON_WIDTH = 180
 PAUSE_LEAVE_BUTTON_HEIGHT = 56
-PAUSE_LEAVE_BUTTON_COLOR = (110, 40, 40)
+PAUSE_LEAVE_BUTTON_COLOR = (58, 58, 62)
 PAUSE_LEAVE_BUTTON_TEXT_COLOR = (230, 230, 230)
 PAUSE_LEAVE_BUTTON_FONT_SIZE = 30
 
@@ -477,7 +478,7 @@ PLAYER_FRAME_PATHS = [
     "assets/images/person/player3.png",
 ]
 PLAYER_FRAME_DURATION = 0.12            # seconds each walk frame stays up while moving
-PLAYER_SPRITE_HEIGHT = 46               # frames are scaled to this world-pixel height,
+PLAYER_SPRITE_HEIGHT = 92              # frames are scaled to this world-pixel height,
                                           # width follows automatically to keep each
                                           # frame's own proportions (they're not all
                                           # exactly the same shape)
@@ -555,7 +556,7 @@ ENEMY_SPRITE_CHECKER_BRIGHTNESS_THRESHOLD = 175
 BOSS_FIGHT_PROMPT_TEXT = "Press E: Boss Fight"
 BOSS_FIGHT_PROMPT_FONT_SIZE = 40
 BOSS_FIGHT_PROMPT_TEXT_COLOR = (230, 230, 230)
-BOSS_FIGHT_PROMPT_BG_COLOR = (40, 10, 10)
+BOSS_FIGHT_PROMPT_BG_COLOR = (14, 14, 16)
 BOSS_FIGHT_PROMPT_BG_ALPHA = 190
 BOSS_FIGHT_PROMPT_PADDING = 16          # space between the text and the box edge on every side
 BOSS_FIGHT_PROMPT_TOP_MARGIN = 78       # distance from the top of the screen -- below the
@@ -574,10 +575,10 @@ TOWER_INTRO_PROMPT_TEXT_TEMPLATE = "Destroy all {count} towers"
 TOWER_INTRO_PROMPT_DURATION = 7.0        # seconds it stays on screen, then fades away on its own
 TOWER_INTRO_PROMPT_FADE_DURATION = 1.0   # the last this-many seconds ease the alpha down to 0
 TOWER_INTRO_PROMPT_FONT_SIZE = 32
-TOWER_INTRO_PROMPT_TEXT_COLOR = (255, 228, 222)
-TOWER_INTRO_PROMPT_BG_COLOR = (32, 10, 12)
+TOWER_INTRO_PROMPT_TEXT_COLOR = (205, 205, 208)
+TOWER_INTRO_PROMPT_BG_COLOR = (14, 14, 16)
 TOWER_INTRO_PROMPT_BG_ALPHA = 200
-TOWER_INTRO_PROMPT_BORDER_COLOR = (205, 60, 55)
+TOWER_INTRO_PROMPT_BORDER_COLOR = (120, 120, 124)
 TOWER_INTRO_PROMPT_PADDING = 18
 TOWER_INTRO_PROMPT_TOP_MARGIN = 40
 
@@ -660,15 +661,15 @@ BOSS_RAGE_TINT_BLEND = 0.55              # ...by this much (0 = no change, 1 = s
 BOSS_HEALTH_BAR_WIDTH = 480
 BOSS_HEALTH_BAR_HEIGHT = 26
 BOSS_HEALTH_BAR_TOP_MARGIN = 74
-BOSS_HEALTH_BAR_BG_COLOR = (35, 10, 10, 220)
-BOSS_HEALTH_BAR_FILL_COLOR = (200, 30, 30)
+BOSS_HEALTH_BAR_BG_COLOR = (14, 14, 16, 220)
+BOSS_HEALTH_BAR_FILL_COLOR = (170, 170, 174)
 BOSS_HEALTH_BAR_ENRAGED_FILL_COLOR = (255, 110, 30)   # step 54: orange once enraged, easy to spot
-BOSS_HEALTH_BAR_BORDER_COLOR = (140, 45, 45)
+BOSS_HEALTH_BAR_BORDER_COLOR = (92, 92, 96)
 BOSS_HEALTH_BAR_BORDER_WIDTH = 2
 BOSS_HEALTH_BAR_BORDER_RADIUS = 8
 BOSS_HEALTH_BAR_LABEL_TEXT = "BOSS"
 BOSS_HEALTH_BAR_LABEL_FONT_SIZE = 20
-BOSS_HEALTH_BAR_LABEL_COLOR = (255, 220, 215)
+BOSS_HEALTH_BAR_LABEL_COLOR = (205, 205, 208)
 BOSS_HEALTH_BAR_RAGE_LABEL_TEXT = "ENRAGED"
 BOSS_HEALTH_BAR_RAGE_LABEL_COLOR = (255, 130, 60)
 
@@ -721,10 +722,10 @@ SHOP_RELIC_PROJECTILE_SPEED_RANGE = (500, 900)
 # edge of each button (hud.py's draw_shop) -- purely decorative, just
 # makes the four items easier to tell apart at a glance.
 SHOP_ITEM_COLORS = {
-    "speed": (110, 210, 230),
-    "damage": (230, 100, 80),
-    "health": (120, 220, 140),
-    "relic": (190, 120, 230),
+    "speed": (190, 190, 194),
+    "damage": (160, 160, 164),
+    "health": (130, 130, 134),
+    "relic": (100, 100, 104),
 }
 
 # Panel layout -- drawn directly on the real window (like the pause
@@ -738,12 +739,12 @@ SHOP_PANEL_WIDTH = 340
 SHOP_PANEL_BORDER_RADIUS = 14
 # Step 54: recolored from indigo/blue to a deep blood-red, matching the
 # souls badge's own step 54 recolor and the game's existing red/black look.
-SHOP_PANEL_BG_COLOR = (32, 10, 12, 228)      # RGBA, deep blood-red -- matches the souls badge
-SHOP_PANEL_BORDER_COLOR = (205, 60, 55)
+SHOP_PANEL_BG_COLOR = (14, 14, 16, 228)      # RGBA, deep blood-red -- matches the souls badge
+SHOP_PANEL_BORDER_COLOR = (120, 120, 124)
 SHOP_TITLE_TEXT = "SHOP"
 SHOP_TITLE_FONT_SIZE = 28
-SHOP_TITLE_COLOR = (255, 210, 205)
-SHOP_DIVIDER_COLOR = (140, 55, 55)
+SHOP_TITLE_COLOR = (195, 195, 198)
+SHOP_DIVIDER_COLOR = (70, 70, 74)
 SHOP_ITEM_FONT_SIZE = 23
 SHOP_ITEM_HEIGHT = 56
 SHOP_ITEM_GAP = 12                      # vertical space between stacked item buttons
@@ -753,12 +754,165 @@ SHOP_BUTTON_ACCENT_WIDTH = 6             # the colored bar on each button's left
 SHOP_COST_ICON_RADIUS = 6                # smaller version of the souls badge's orb icon,
                                            # shown next to each item's cost
 
-SHOP_BUTTON_COLOR = (38, 36, 55)
-SHOP_BUTTON_HOVER_COLOR = (58, 56, 85)
-SHOP_BUTTON_DISABLED_COLOR = (28, 26, 34)     # not enough souls yet
-SHOP_BUTTON_PURCHASED_COLOR = (28, 55, 40)    # already owned -- green, reads as "done"
-SHOP_BUTTON_BORDER_COLOR = (110, 45, 45)      # step 54: red-tinted, was indigo
-SHOP_BUTTON_TEXT_COLOR = (230, 230, 240)
-SHOP_BUTTON_DISABLED_TEXT_COLOR = (110, 105, 120)
+SHOP_BUTTON_COLOR = (30, 30, 33)
+SHOP_BUTTON_HOVER_COLOR = (52, 52, 57)
+SHOP_BUTTON_DISABLED_COLOR = (20, 20, 22)     # not enough souls yet
+SHOP_BUTTON_PURCHASED_COLOR = (36, 36, 39)    # already owned -- green, reads as "done"
+SHOP_BUTTON_BORDER_COLOR = (70, 70, 74)      # step 54: red-tinted, was indigo
+SHOP_BUTTON_TEXT_COLOR = (205, 205, 208)
+SHOP_BUTTON_DISABLED_TEXT_COLOR = (90, 90, 94)
 SHOP_BUTTON_PURCHASED_TEXT = "Owned"
-SHOP_BUTTON_PURCHASED_TEXT_COLOR = (150, 230, 175)
+SHOP_BUTTON_PURCHASED_TEXT_COLOR = (150, 150, 154)
+
+# --- Stats button + panel (step 60) ---
+# A button left of the pause button; clicking it toggles a panel listing
+# every player stat (hud.py's draw_stats_button / draw_stats_panel).
+STATS_BUTTON_GAP = 10
+STATS_BUTTON_ACTIVE_COLOR = (58, 58, 62)
+STATS_PANEL_WIDTH = 330
+STATS_PANEL_PADDING = 16
+STATS_PANEL_BORDER_RADIUS = 14
+STATS_PANEL_BG_COLOR = (14, 14, 16, 232)
+STATS_PANEL_BORDER_COLOR = (120, 120, 124)
+STATS_PANEL_TITLE_COLOR = (195, 195, 198)
+STATS_PANEL_TITLE_FONT_SIZE = 26
+STATS_PANEL_TITLE_HEIGHT = 36
+STATS_PANEL_DIVIDER_COLOR = (70, 70, 74)
+STATS_PANEL_FONT_SIZE = 24
+STATS_PANEL_ROW_HEIGHT = 30
+STATS_PANEL_ROW_COUNT = 6                  # must match the number of rows hud._stat_rows returns
+STATS_PANEL_LABEL_COLOR = (150, 150, 154)
+STATS_PANEL_VALUE_COLOR = (215, 215, 218)
+
+# --- VHS / old TV overlay (step 61) ---
+# A fullscreen "tape" look drawn over the world each frame (vhs.py).
+# Toggle live with the V key; set VHS_EFFECT_ENABLED = False to start with
+# it off. Alphas are 0-255 (higher = stronger).
+VHS_EFFECT_ENABLED = True
+VHS_TOGGLE_KEY_NAME = "v"                 # documentation only; the key itself is pygame.K_v in main.py
+
+VHS_SCANLINE_SPACING = 4                  # a dark line every this many pixels...
+VHS_SCANLINE_THICKNESS = 2                # ...this many pixels thick
+VHS_SCANLINE_ALPHA = 60
+
+VHS_VIGNETTE_STRENGTH = 200               # darkness in the extreme corners
+
+VHS_GRAIN_FRAMES = 4                      # pre-built static frames cycled randomly
+VHS_GRAIN_SCALE = 3                       # size of each speck in pixels
+VHS_GRAIN_MAX_ALPHA = 34
+
+VHS_FLICKER_MAX_ALPHA = 16                # random whole-screen darkening per frame
+
+VHS_BAND_HEIGHT = 150                     # the faint bar rolling down the screen
+VHS_BAND_SPEED = 80                       # pixels per second
+VHS_BAND_ALPHA = 26
+
+VHS_GLITCH_MIN_INTERVAL = 2.5             # seconds between tape tears (random in this range)
+VHS_GLITCH_MAX_INTERVAL = 7.0
+VHS_GLITCH_DURATION = 0.16
+VHS_GLITCH_SLICES = 3
+VHS_GLITCH_MAX_SLICE_HEIGHT = 48
+VHS_GLITCH_MAX_OFFSET = 38
+
+
+# --- UI scale (step 62) ---
+# Everything below shrinks the HUD (bars, badges, panels, buttons, shop,
+# prompts and their text) to UI_SCALE of the sizes written above, in one
+# place. Set UI_SCALE = 1.0 for the old size. Applied once at import, so
+# hud.py / main.py just keep reading settings.X as before. World art
+# (player, enemies, ...), menus and big game-over/victory text are not
+# touched.
+UI_SCALE = 0.7
+UI_MIN_FONT_SIZE = 12
+
+
+def ui(pixels):
+    """A pixel amount scaled by UI_SCALE (never below 1) -- for the few
+    small offsets that live inside hud.py instead of here."""
+    return max(1, round(pixels * UI_SCALE))
+
+
+_UI_SCALED_NAMES = [
+    "HUD_MARGIN",
+    "HEALTH_BAR_WIDTH", "HEALTH_BAR_HEIGHT", "HEALTH_BAR_BORDER_RADIUS",
+    "HUD_PANEL_WIDTH", "HUD_PANEL_PADDING", "HUD_PANEL_ROW_GAP", "HUD_PANEL_BORDER_RADIUS",
+    "SOULS_BADGE_WIDTH", "SOULS_BADGE_HEIGHT", "SOULS_BADGE_TOP_MARGIN", "SOULS_ICON_RADIUS",
+    "LEVEL_BAR_WIDTH", "LEVEL_BAR_HEIGHT", "LEVEL_BAR_BOTTOM_MARGIN", "LEVEL_BAR_BORDER_RADIUS",
+    "PAUSE_BUTTON_SIZE", "PAUSE_BUTTON_MARGIN",
+    "PAUSE_LEAVE_BUTTON_WIDTH", "PAUSE_LEAVE_BUTTON_HEIGHT",
+    "BOSS_FIGHT_PROMPT_PADDING", "BOSS_FIGHT_PROMPT_TOP_MARGIN",
+    "TOWER_INTRO_PROMPT_PADDING", "TOWER_INTRO_PROMPT_TOP_MARGIN",
+    "BOSS_HEALTH_BAR_WIDTH", "BOSS_HEALTH_BAR_HEIGHT", "BOSS_HEALTH_BAR_TOP_MARGIN",
+    "BOSS_HEALTH_BAR_BORDER_RADIUS",
+    "SHOP_PANEL_MARGIN", "SHOP_PANEL_WIDTH", "SHOP_PANEL_BORDER_RADIUS", "SHOP_ITEM_HEIGHT",
+    "SHOP_ITEM_GAP", "SHOP_PANEL_PADDING", "SHOP_BUTTON_BORDER_RADIUS",
+    "SHOP_BUTTON_ACCENT_WIDTH", "SHOP_COST_ICON_RADIUS",
+    "STATS_BUTTON_GAP", "STATS_PANEL_WIDTH", "STATS_PANEL_PADDING", "STATS_PANEL_BORDER_RADIUS",
+    "STATS_PANEL_TITLE_HEIGHT", "STATS_PANEL_ROW_HEIGHT",
+]
+_UI_SCALED_FONTS = [
+    "LEVEL_BAR_LABEL_FONT_SIZE", "LEVEL_PANEL_LABEL_FONT_SIZE", "SOULS_BADGE_FONT_SIZE",
+    "BASES_LABEL_FONT_SIZE", "SCANNER_LABEL_FONT_SIZE", "PAUSE_LEAVE_BUTTON_FONT_SIZE",
+    "BOSS_FIGHT_PROMPT_FONT_SIZE", "TOWER_INTRO_PROMPT_FONT_SIZE",
+    "BOSS_HEALTH_BAR_LABEL_FONT_SIZE", "SHOP_TITLE_FONT_SIZE", "SHOP_ITEM_FONT_SIZE",
+    "STATS_PANEL_TITLE_FONT_SIZE", "STATS_PANEL_FONT_SIZE",
+]
+for _name in _UI_SCALED_NAMES:
+    globals()[_name] = ui(globals()[_name])
+for _name in _UI_SCALED_FONTS:
+    globals()[_name] = max(UI_MIN_FONT_SIZE, round(globals()[_name] * UI_SCALE))
+
+
+# --- Sound (step 63) ---
+# Files live in assets/sounds/. Volumes are 0.0-1.0. sounds.py loads these
+# once; if audio can't start (no sound device) the game just runs silent.
+SOUND_DIR = "assets/sounds/"
+SOUND_FILES = {
+    "attack1": "attack1.mp3",       # player shot (variant 1)
+    "attack2": "attack2.mp3",       # player shot (variant 2)
+    "attack3": "attack3.mp3",       # enemy shots (towers / boss / minions)
+    "death": "death.mp3",           # enemy kill + player death
+    "mine": "mine.mp3",             # mine explosion
+    "move": "move.mp3",             # footsteps loop while walking
+    "whitenoise": "whitenoise.mp3", # ambient TV static loop
+}
+PLAYER_SHOT_SOUNDS = ["attack1", "attack2"]   # one is picked at random per shot (never the same twice in a row)
+SOUND_MASTER_VOLUME = 1.0
+SOUND_VOLUME_PLAYER_SHOT = 0.5
+SOUND_VOLUME_ENEMY_SHOT = 0.3
+SOUND_VOLUME_ENEMY_DEATH = 0.5
+SOUND_VOLUME_PLAYER_DEATH = 1.0
+SOUND_VOLUME_MINE = 0.8
+SOUND_VOLUME_MOVE = 0.35
+SOUND_VOLUME_AMBIENT = 0.12
+SOUND_MOVE_FADE_MS = 120               # footsteps fade in/out so they don't click
+SOUND_MIN_REPEAT_SECONDS = 0.06        # same sound can't retrigger faster than this
+SOUND_ENEMY_SHOT_MAX_DISTANCE = 600    # tower/boss shots further than this are silent
+
+
+# --- Settings screen (step 64) ---
+# Language + one volume slider per sound group (settings_menu.py). Sizes
+# below are for a ~900px-tall window; the screen shrinks itself to fit
+# smaller ones. Opened from the start menu and from the pause overlay.
+SETTINGS_BG_OVERLAY_ALPHA = 215          # darkness over the game when opened from pause
+SETTINGS_TITLE_FONT_SIZE = 60
+SETTINGS_SECTION_FONT_SIZE = 34
+SETTINGS_TEXT_FONT_SIZE = 28
+SETTINGS_PANEL_WIDTH = 760
+SETTINGS_ROW_HEIGHT = 46
+SETTINGS_SLIDER_WIDTH = 300
+SETTINGS_SLIDER_HEIGHT = 10
+SETTINGS_BUTTON_WIDTH = 170
+SETTINGS_BUTTON_HEIGHT = 46
+SETTINGS_PANEL_COLOR = (14, 14, 16, 235)
+SETTINGS_PANEL_BORDER_COLOR = (92, 92, 96)
+SETTINGS_TITLE_COLOR = (215, 215, 218)
+SETTINGS_TEXT_COLOR = (200, 200, 204)
+SETTINGS_DIM_TEXT_COLOR = (130, 130, 134)
+SETTINGS_SLIDER_BG_COLOR = (45, 45, 48)
+SETTINGS_SLIDER_FILL_COLOR = (170, 170, 174)
+SETTINGS_SLIDER_KNOB_COLOR = (225, 225, 228)
+SETTINGS_BUTTON_COLOR = (34, 34, 37)
+SETTINGS_BUTTON_HOVER_COLOR = (58, 58, 63)
+SETTINGS_BUTTON_ACTIVE_COLOR = (92, 92, 98)       # the selected language
+SETTINGS_BUTTON_BORDER_COLOR = (100, 100, 106)

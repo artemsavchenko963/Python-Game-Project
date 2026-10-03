@@ -177,6 +177,11 @@ from boss import Boss
 import boss as boss_module
 import menu
 import hud
+from vhs import VHSOverlay
+import sounds
+import prefs
+import i18n
+import settings_menu
 
 
 def create_game_state(difficulty):
@@ -438,6 +443,12 @@ def main():
     # at this point, on purpose, since the menu is what decides the
     # numbers create_game_state() builds them with. Closing the window
     # from the menu returns None, treated the same as quitting mid-game.
+    # Step 64: saved language + volumes, and the mixer, ready BEFORE the
+    # start menu so its Settings screen can already play slider previews.
+    prefs.load()
+    i18n.load()
+    sounds.init()
+
     difficulty_name = menu.run(screen, clock)
     if difficulty_name is None:
         pygame.quit()
@@ -479,6 +490,15 @@ def main():
     # a Room some earlier run already fought through.
     arena_room = Room(settings.ARENA_MAP_PATH)
 
+    # Step 62: old-TV / VHS overlay -- built once here (it pre-renders
+    # scanlines, grain, vignette), drawn every frame right after the world
+    # is scaled up. V toggles it.
+    vhs_overlay = VHSOverlay(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
+
+    # Step 63: sound effects + quiet looping TV static (sounds.py).
+    sounds.start_ambient()
+    vhs_enabled = settings.VHS_EFFECT_ENABLED
+
     # The world is drawn onto this smaller surface, then scaled up to
     # fill the real window each frame -- that's the whole zoom effect
     # (see the step 22 note in the module docstring above). Uses true
@@ -495,19 +515,15 @@ def main():
     # them otherwise.
     castle_view_width, castle_view_height = view_width, view_height
 
-    # Step 34: built once here, not per-frame -- see _build_fog_surface's
-    # own docstring for why. fog_radius is how far the fog surface's own
-    # center sits from ITS top-left corner, needed every frame to offset
-    # it so that center lands exactly on the player's screen position.
-    fog_surface, fog_radius = _build_fog_surface(view_width, view_height)
-
     room, player, projectiles, enemy_projectiles, bases, mines = create_game_state(difficulty)
     explosions = []  # step 38: one per mine that's actually detonated, not defused
     hit_effects = []  # step 43: one per bullet that actually hit something
     game_over = False
+    player_death_sound_played = False
     won = False  # step 32: True once every base has been cleared
     in_arena = False  # step 46: True once the castle's cleared and the player's moved to arena.tmx
     paused = False
+    stats_open = False  # step 60: toggled by the stats button next to pause
     scanner_cooldown = 0.0  # step 35: seconds left before E can scan again
     # Step 58: counts down from settings.TOWER_INTRO_PROMPT_DURATION,
     # only while the game is actually running (see the update section
@@ -534,6 +550,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_v:
+                vhs_enabled = not vhs_enabled
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE and not game_over and not won:
+                # Esc pauses / resumes (same as the pause button and Continue).
+                paused = not paused
             elif event.type == pygame.KEYDOWN and (game_over or won) and event.key == pygame.K_r:
                 # Restarting keeps the SAME difficulty you picked at the
                 # menu -- it does not send you back to the menu screen.
@@ -541,6 +562,7 @@ def main():
                 explosions = []
                 hit_effects = []
                 game_over = False
+                player_death_sound_played = False
                 won = False
                 in_arena = False
                 scanner_cooldown = 0.0
@@ -560,6 +582,16 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if not paused and hud.get_pause_button_rect(screen).collidepoint(event.pos):
                     paused = True
+                elif not paused and hud.get_stats_button_rect(screen).collidepoint(event.pos):
+                    stats_open = not stats_open
+                elif paused and hud.get_continue_button_rect(screen).collidepoint(event.pos):
+                    paused = False
+                elif paused and hud.get_settings_button_rect(screen).collidepoint(event.pos):
+                    # Step 64: Settings opens on top of the frozen game. It
+                    # blocks (own loop) and shares `clock`, so unpausing
+                    # afterwards doesn't see a huge dt.
+                    if not settings_menu.run(screen, clock, background=screen.copy()):
+                        running = False
                 elif paused and hud.get_leave_button_rect(screen).collidepoint(event.pos):
                     running = False
                 elif (
@@ -730,6 +762,7 @@ def main():
         # OR won is True (step 32), OR the game is paused, which is what
         # makes the world freeze in place instead of continuing to move
         # behind whichever overlay is showing.
+        player_moved = False
         if not game_over and not won and not paused:
             # Step 46/47: clearing every base in the castle used to show
             # victory right away, then (step 46) teleported into arena.tmx
@@ -741,7 +774,9 @@ def main():
             # arena (not decided yet), so `won` is never set here.
 
             keys = pygame.key.get_pressed()
+            position_before = player.rect.center
             player.handle_movement(dt, keys, room.wall_rects, room.rect)
+            player_moved = player.rect.center != position_before
             player.handle_weapon_switch(keys)
 
             # Step 35: cooldown ticks down regardless of whether a scan
@@ -772,6 +807,7 @@ def main():
                     if player.take_damage(settings.MINE_DAMAGE):
                         game_over = True
                     explosions.append(Explosion(mine.rect.center))
+                    sounds.play("mine", settings.SOUND_VOLUME_MINE, "mine")
                     mines.remove(mine)
 
             # Chase behavior: every enemy on the map moves toward the
@@ -790,6 +826,9 @@ def main():
                 new_enemy_projectile = enemy.update(dt, player, room.wall_rects)
                 if new_enemy_projectile is not None:
                     enemy_projectiles.append(new_enemy_projectile)
+                    shot_distance = pygame.Vector2(enemy.rect.center).distance_to(player.rect.center)
+                    if shot_distance <= settings.SOUND_ENEMY_SHOT_MAX_DISTANCE:
+                        sounds.play("attack3", settings.SOUND_VOLUME_ENEMY_SHOT, "enemy_shot")
                 if isinstance(enemy, Boss) and enemy.pending_minion_spawns:
                     for spawn_center in enemy.pending_minion_spawns:
                         room.enemies.append(Enemy(center=spawn_center))
@@ -846,6 +885,7 @@ def main():
                     )
                 )
                 player.reset_fire_cooldown()
+                sounds.play_player_shot(settings.SOUND_VOLUME_PLAYER_SHOT)
 
             # Move every projectile, then check what it hit. Looping over
             # projectiles[:] (a copy of the list) is what makes it safe to
@@ -864,6 +904,7 @@ def main():
                     hit_effects.append(HitEffect(projectile.pos))
                     if hit_enemy.take_damage(projectile.damage):
                         room.enemies.remove(hit_enemy)
+                        sounds.play("death", settings.SOUND_VOLUME_ENEMY_DEATH, "enemy_death")
                         # Step 52: souls for the kill -- isinstance guards
                         # this against the boss (a separate class, not an
                         # Enemy) so beating it doesn't also hand out a
@@ -926,6 +967,13 @@ def main():
             if in_arena and not room.enemies:
                 won = True
 
+        # Step 63: footsteps only while actually walking (not paused/dead),
+        # and the player's own death sound exactly once per death.
+        sounds.set_moving(player_moved)
+        if game_over and not player_death_sound_played:
+            player_death_sound_played = True
+            sounds.play("death", settings.SOUND_VOLUME_PLAYER_DEATH, "player_death")
+
         # 3. Draw everything -- always runs, game over or not, so the
         # frozen world stays visible underneath the game-over overlay.
         # Everything draws onto game_surface (the smaller, zoomed-in
@@ -955,24 +1003,13 @@ def main():
         # of the map does.
         room.draw_foreground(game_surface, camera_x, camera_y)
 
-        # Step 34: the fog vignette goes on top of the whole world (map,
-        # items, enemies, player, projectiles) but UNDER the HUD -- the
-        # health bar/weapon label/bases counter should always stay fully
-        # readable, never dimmed by the fog. Positioned so the fog
-        # surface's own center (fog_radius, fog_radius) lands exactly on
-        # the player's on-screen position, wherever that currently is.
-        #
-        # Step 47: skipped entirely once in_arena -- the boss arena is
-        # meant to be fully visible (it's a single contained fight, not
-        # something to explore in the dark), so the whole screen just
-        # stays lit there instead of only a circle around the player.
-        if not in_arena:
-            player_screen_x = player.rect.centerx - camera_x
-            player_screen_y = player.rect.centery - camera_y
-            game_surface.blit(fog_surface, (player_screen_x - fog_radius, player_screen_y - fog_radius))
+        # Step 59: the fog-of-war vignette is gone -- the player now sees
+        # the whole screen everywhere (castle and arena alike). The
+        # _build_fog_surface helper above is left in place, unused, in
+        # case it ever comes back.
 
         hud.draw_hud_panel(game_surface)
-        hud.draw_health_bar(game_surface, player)
+        hud.draw_level_bar(game_surface, player)
 
         # Step 58: a base now counts as "remaining" purely by whether its
         # TOWER (guardian) is still alive -- minions no longer matter
@@ -1010,10 +1047,18 @@ def main():
         # one line is what actually makes everything look "zoomed in".
         pygame.transform.scale(game_surface, (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), screen)
 
+        # VHS / old-TV layer: over the world, under the crisp HUD.
+        if vhs_enabled:
+            vhs_overlay.update(dt)
+            vhs_overlay.draw(screen)
+
         # Pause button/overlay draw directly on the real window, AFTER
         # the zoomed world is stretched onto it -- so they sit on top of
         # everything, and stay a fixed size no matter what ZOOM is.
         hud.draw_pause_button(screen)
+        hud.draw_stats_button(screen, stats_open)
+        if stats_open and not paused:
+            hud.draw_stats_panel(screen, player)
         if paused:
             hud.draw_pause_overlay(screen)
 
@@ -1030,7 +1075,7 @@ def main():
         # visible (same "persistent counter" reasoning as the souls
         # badge above), drawn on the real screen so it stays a fixed,
         # crisp size no matter which map's zoom is currently active.
-        hud.draw_level_bar(screen, player)
+        hud.draw_health_bar(screen, player)
 
         # Step 54: the boss health bar -- top-center, just below the souls
         # badge, shown only while in_arena. There's no dedicated `boss`
