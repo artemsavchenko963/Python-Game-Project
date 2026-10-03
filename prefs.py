@@ -29,3 +29,15 @@ def save():
             json.dump(data, handle, ensure_ascii=False, indent=2)
     except OSError:
         pass
+
+
+def get_number(key, default, low, high):
+    """A saved numeric preference, clamped to [low, high]."""
+    value = data.get(key, default)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        value = default
+    return max(low, min(high, float(value)))
+
+
+def set_number(key, value):
+    data[key] = round(float(value), 3)

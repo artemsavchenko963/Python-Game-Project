@@ -7,6 +7,7 @@ import random
 
 import pygame
 
+import prefs
 import settings
 from weapon import Weapon
 
@@ -374,7 +375,7 @@ class Player:
 
         return True
 
-    def handle_aim(self, camera_x, camera_y, view_width, view_height):
+    def handle_aim(self, camera_x, camera_y, view_width, view_height, dt=None):
         """Point aim_dir from the player's on-screen position toward the mouse."""
         screen_x = self.rect.centerx - camera_x
         screen_y = self.rect.centery - camera_y
@@ -403,7 +404,26 @@ class Player:
         # Guard against the zero-length vector you'd get if the mouse were
         # exactly on top of the player -- normalize() crashes on that.
         if direction.length_squared() > 0:
-            self.aim_dir = direction.normalize()
+            target_dir = direction.normalize()
+            # Step 65: aim sensitivity (Settings). 100% snaps straight to
+            # the cursor; lower values only TURN toward it at a limited
+            # speed, so the aim feels smoother/heavier.
+            sensitivity = prefs.get_number(
+                "aim_sensitivity", settings.AIM_SENSITIVITY_MAX,
+                settings.AIM_SENSITIVITY_MIN, settings.AIM_SENSITIVITY_MAX,
+            )
+            if dt is None or sensitivity >= settings.AIM_SENSITIVITY_MAX - 0.001:
+                self.aim_dir = target_dir
+            else:
+                span = settings.AIM_SENSITIVITY_MAX - settings.AIM_SENSITIVITY_MIN
+                t = (sensitivity - settings.AIM_SENSITIVITY_MIN) / span
+                rate = settings.AIM_TURN_RATE_AT_MIN + (
+                    settings.AIM_TURN_RATE_AT_MAX - settings.AIM_TURN_RATE_AT_MIN
+                ) * t
+                angle = self.aim_dir.angle_to(target_dir)  # signed, degrees
+                angle = (angle + 180) % 360 - 180
+                step = max(-rate * dt, min(rate * dt, angle))
+                self.aim_dir = self.aim_dir.rotate(step)
 
     def tick_cooldown(self, dt):
         """Count the fire cooldown down toward 0. Call this once per frame."""

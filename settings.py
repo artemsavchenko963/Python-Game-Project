@@ -818,11 +818,16 @@ VHS_GLITCH_MAX_OFFSET = 38
 # --- UI scale (step 62) ---
 # Everything below shrinks the HUD (bars, badges, panels, buttons, shop,
 # prompts and their text) to UI_SCALE of the sizes written above, in one
-# place. Set UI_SCALE = 1.0 for the old size. Applied once at import, so
-# hud.py / main.py just keep reading settings.X as before. World art
-# (player, enemies, ...), menus and big game-over/victory text are not
-# touched.
-UI_SCALE = 0.7
+# place. UI_BASE_SCALE is the default look (1.0 = the original big HUD);
+# the player's own "Interface scale" slider in Settings multiplies it
+# (50%-150%) through apply_ui_scale(), which re-derives every scaled
+# constant below on the spot -- hud.py / main.py just keep reading
+# settings.X at draw time as before. World art (player, enemies, ...),
+# menus and big game-over/victory text are not touched.
+UI_BASE_SCALE = 0.7
+UI_SCALE_MIN_FACTOR = 0.5
+UI_SCALE_MAX_FACTOR = 1.5
+UI_SCALE = UI_BASE_SCALE
 UI_MIN_FONT_SIZE = 12
 
 
@@ -857,10 +862,35 @@ _UI_SCALED_FONTS = [
     "BOSS_HEALTH_BAR_LABEL_FONT_SIZE", "SHOP_TITLE_FONT_SIZE", "SHOP_ITEM_FONT_SIZE",
     "STATS_PANEL_TITLE_FONT_SIZE", "STATS_PANEL_FONT_SIZE",
 ]
-for _name in _UI_SCALED_NAMES:
-    globals()[_name] = ui(globals()[_name])
-for _name in _UI_SCALED_FONTS:
-    globals()[_name] = max(UI_MIN_FONT_SIZE, round(globals()[_name] * UI_SCALE))
+# The original (unscaled) numbers, remembered so the scale can be changed
+# any number of times without compounding.
+_UI_BASE_VALUES = {_name: globals()[_name] for _name in _UI_SCALED_NAMES + _UI_SCALED_FONTS}
+
+
+def apply_ui_scale(factor=1.0):
+    """Set the interface scale to UI_BASE_SCALE * factor (factor clamped to
+    UI_SCALE_MIN_FACTOR..UI_SCALE_MAX_FACTOR) and re-derive every scaled
+    HUD constant. Safe to call at any time, e.g. from the Settings screen."""
+    global UI_SCALE
+    factor = max(UI_SCALE_MIN_FACTOR, min(UI_SCALE_MAX_FACTOR, factor))
+    UI_SCALE = UI_BASE_SCALE * factor
+    for name in _UI_SCALED_NAMES:
+        globals()[name] = ui(_UI_BASE_VALUES[name])
+    for name in _UI_SCALED_FONTS:
+        globals()[name] = max(UI_MIN_FONT_SIZE, round(_UI_BASE_VALUES[name] * UI_SCALE))
+
+
+apply_ui_scale(1.0)
+
+# --- Aim sensitivity (step 65) ---
+# 100% = the aim snaps to the cursor instantly (the original behavior).
+# Lower values make the aim TURN toward the cursor at a limited speed
+# (degrees per second, interpolated between the two numbers below), which
+# feels smoother / heavier. Edited by the slider in Settings.
+AIM_SENSITIVITY_MIN = 0.1
+AIM_SENSITIVITY_MAX = 1.0
+AIM_TURN_RATE_AT_MIN = 90.0       # deg/s at the lowest sensitivity
+AIM_TURN_RATE_AT_MAX = 1800.0     # deg/s just below 100% (100% is instant)
 
 
 # --- Sound (step 63) ---
@@ -899,7 +929,7 @@ SETTINGS_TITLE_FONT_SIZE = 60
 SETTINGS_SECTION_FONT_SIZE = 34
 SETTINGS_TEXT_FONT_SIZE = 28
 SETTINGS_PANEL_WIDTH = 760
-SETTINGS_ROW_HEIGHT = 46
+SETTINGS_ROW_HEIGHT = 42
 SETTINGS_SLIDER_WIDTH = 300
 SETTINGS_SLIDER_HEIGHT = 10
 SETTINGS_BUTTON_WIDTH = 170

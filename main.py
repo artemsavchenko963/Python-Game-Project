@@ -448,6 +448,9 @@ def main():
     prefs.load()
     i18n.load()
     sounds.init()
+    settings.apply_ui_scale(prefs.get_number(
+        "ui_scale", 1.0, settings.UI_SCALE_MIN_FACTOR, settings.UI_SCALE_MAX_FACTOR
+    ))
 
     difficulty_name = menu.run(screen, clock)
     if difficulty_name is None:
@@ -864,7 +867,7 @@ def main():
             camera_x = max(0, min(camera_x, room.rect.width - view_width))
             camera_y = max(0, min(camera_y, room.rect.height - view_height))
 
-            player.handle_aim(camera_x, camera_y, view_width, view_height)
+            player.handle_aim(camera_x, camera_y, view_width, view_height, dt)
 
             # Fire while LMB is held, at most once every
             # equipped_weapon.fire_interval seconds.
